@@ -2,9 +2,9 @@
 
 ## Graph Analytics & Blanchiment d'Argent (Anti-Money Laundering)
 
-> **Last updated:** 2026-11-02 19:10 UTC  
+> **Last updated:** 2026-11-02 20:20 UTC  
 > **Overall status:** 🟡 In Progress  
-> **Current phase:** Phase 2 — Producer, Truth Fixtures & IBM AMLSim Integration
+> **Current phase:** Phase 4 — Temporal Graph Detection
 
 ---
 
@@ -15,8 +15,8 @@
 | 0 | Requirements & Architecture | 🟢 Complete | 2026-11-01 | 2026-11-01 | Versions locked, config created |
 | 1 | Reproducible Environment | 🟡 In Progress | 2026-11-01 | — | Docker infra created, ready for manual build |
 | 2 | Producer & Truth Fixtures | 🟢 Complete | 2026-11-02 | 2026-11-02 | Producer, AMLSim adapter, and 7 fixtures ready |
-| 3 | Raw Ingestion & Acceptance | 🔴 Not Started | — | — | |
-| 4 | Temporal Graph Detection | 🔴 Not Started | — | — | |
+| 3 | Raw Ingestion & Acceptance | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta schemas, validation engine, ingestion pipeline |
+| 4 | Temporal Graph Detection | 🟡 In Progress | 2026-11-02 | — | Windowing & GraphFrames motif finding |
 | 5 | Durable Alerts & Publication | 🔴 Not Started | — | — | |
 | 6 | Enrichment Pipeline | 🔴 Not Started | — | — | |
 | 7 | Investigation Dashboard | 🔴 Not Started | — | — | |
@@ -31,8 +31,8 @@
 | Milestone | Target Week | Status | Completion Date | Gate Passed? |
 |---|:---:|:------:|:---:|:---:|
 | M0 — Approved spec + working stack | Week 1 | 🟡 | — | ❌ |
-| M1 — Generator + accepted history | Week 2 | 🟡 | — | ❌ |
-| M2 — Triangle detection across batches | Week 3 | 🔴 | — | ❌ |
+| M1 — Generator + accepted history | Week 2 | 🟢 | 2026-11-02 | ✅ |
+| M2 — Triangle detection across batches | Week 3 | 🟡 | — | ❌ |
 | M3 — Durable alerts + replay recovery | Week 4 | 🔴 | — | ❌ |
 | M4 — Enrichment + dashboard | Week 5 | 🔴 | — | ❌ |
 | M5 — Acceptance report + final demo | Week 6 | 🔴 | — | ❌ |
@@ -142,28 +142,30 @@
 
 ### Tasks
 
-- [ ] Implement `fraud_graph_delta_schema.py`
-  - [ ] Define all table schemas
-  - [ ] `--init` safe initialization
-  - [ ] Separate destructive reset (confirmed only)
-- [ ] Implement ingestion worker
-  - [ ] Kafka → bronze_transactions (immutable append)
-  - [ ] Preserve topic/partition/offset/raw payload
-- [ ] Implement acceptance worker
-  - [ ] JSON parsing + schema validation
-  - [ ] VALID → silver_transactions
-  - [ ] INVALID → quarantined_transactions
-  - [ ] DUPLICATE detection (same ID, same content)
-  - [ ] CONFLICT detection (same ID, different content)
-  - [ ] SELF_TRANSFER handling
-  - [ ] FUTURE_EVENT rejection (>60s tolerance)
-  - [ ] Canonical payload hash (excludes provenance)
-  - [ ] Single-writer serialization
-- [ ] Test deterministic replay
-- [ ] Test validation edge cases
+- [x] Implement `fraud_graph_delta_schema.py`
+  - [x] Define all 10 table schemas and partition strategies
+  - [x] `--init` safe initialization of Delta directories & SQL DDL
+  - [x] `--reset --force` destructive reset with safety check
+  - [x] Output standalone `delta_schemas.sql`
+- [x] Implement ingestion worker (`src/spark_graph_fraud_streaming.py --role ingest`)
+  - [x] Kafka → bronze_transactions (immutable append)
+  - [x] Preserve topic, partition, offset, raw payload, ingest_time, dt
+- [x] Implement acceptance worker (`src/validation.py` + `spark_graph_fraud_streaming.py --role accept`)
+  - [x] JSON parsing + strict ISO-8601 UTC timestamp parsing
+  - [x] VALID → silver_transactions (`online_eligible = true`)
+  - [x] INVALID → quarantined_transactions with reason codes
+  - [x] DUPLICATE detection (same ID & content) → idempotently ignored
+  - [x] CONFLICT detection (same ID, different content) → original kept, conflict quarantined
+  - [x] SELF_TRANSFER handling (src == dst) → accepted, flagged `online_eligible = false`
+  - [x] FUTURE_EVENT rejection (>60s tolerance) → quarantined
+  - [x] Canonical payload hash (excludes provenance)
+  - [x] Single-writer serialization
+- [x] Test deterministic replay & validation edge cases (`tests/test_validation.py`)
 
 ### Notes
-<!-- Add notes as you progress -->
+- Delta Lake table schemas and DDL initialized in `data/delta/delta_schemas.sql`.
+- Ingestion and acceptance workers wired into `src/spark_graph_fraud_streaming.py`.
+- Validation suite passes 100% of tests (`tests/test_validation.py`).
 
 ---
 
@@ -327,16 +329,16 @@
 | AT-02 | Same triangle rotated vertex labels | ⬜ | — | |
 | AT-03 | Edges arrive in three batches | ⬜ | — | |
 | AT-04 | Open chain (no alert) | ⬜ | — | |
-| AT-05 | Repeated account / self-loop | ⬜ | — | |
+| AT-05 | Repeated account / self-loop | ✅ | 2026-11-02 | Self-transfers retained but excluded from online triangles |
 | AT-06 | No common 10-min window | ⬜ | — | |
 | AT-07 | Boundary events at window end | ⬜ | — | |
 | AT-08 | Same cycle overlapping windows | ⬜ | — | |
 | AT-09 | Out-of-order final edge | ⬜ | — | |
 | AT-10 | Event older than watermark | ⬜ | — | |
-| AT-11 | Duplicate transaction | ⬜ | — | |
-| AT-12 | Conflicting payload | ⬜ | — | |
-| AT-13 | Malformed JSON / invalid decimal | ⬜ | — | |
-| AT-14 | Future timestamp beyond tolerance | ⬜ | — | |
+| AT-11 | Duplicate transaction | ✅ | 2026-11-02 | Identical payload idempotently ignored without duplicate entry |
+| AT-12 | Conflicting payload | ✅ | 2026-11-02 | Same ID with different payload quarantined; original kept |
+| AT-13 | Malformed JSON / invalid decimal | ✅ | 2026-11-02 | Syntax and decimal precision errors rejected & quarantined |
+| AT-14 | Future timestamp beyond tolerance | ✅ | 2026-11-02 | Event timestamps >60s ahead rejected & quarantined |
 | AT-15 | Mixed currencies in cycle | ⬜ | — | |
 | AT-16 | Four-account cycle only | ⬜ | — | |
 | AT-17 | High-centrality hub | ⬜ | — | |
@@ -391,6 +393,8 @@ To add a new issue:
 | 5 | 2026-11-01 | All config values in `config/default.yaml` | Single source of truth, easy to change | — |
 | 6 | 2026-11-02 | Selected IBM AMLSim as primary external dataset | Pre-generated 20K nodes with 200 injected cycle patterns (`20K_cycle200`) | — |
 | 7 | 2026-11-02 | Ground truth separation in AMLSimAdapter | Ground truth labels kept in auxiliary metadata; strictly absent from streaming payload | — |
+| 8 | 2026-11-02 | Delta schemas & DDL initialization | 10 tables defined with partition strategies; idempotent `--init` | — |
+| 9 | 2026-11-02 | Deterministic business validation logic | Single-writer serialization, canonical payload hash, conflict quarantine | — |
 
 ---
 

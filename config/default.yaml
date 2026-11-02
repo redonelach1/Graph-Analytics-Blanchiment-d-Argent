@@ -20,28 +20,28 @@ kafka:
     auto_offset_reset: "earliest"
 
 # ---------------------------------------------------------------------------
-# Delta Lake Storage Paths
+# Delta Lake Storage Paths (Relative or via environment variable override)
 # ---------------------------------------------------------------------------
 storage:
-  delta_base: "/opt/app/data/delta"
+  delta_base: "data/delta"
   tables:
-    bronze_transactions: "/opt/app/data/delta/bronze_transactions"
-    silver_transactions: "/opt/app/data/delta/silver_transactions"
-    quarantined_transactions: "/opt/app/data/delta/quarantined_transactions"
-    fraud_alerts: "/opt/app/data/delta/fraud_alerts"
-    anomaly_vertices: "/opt/app/data/delta/anomaly_vertices"
-    anomaly_edges: "/opt/app/data/delta/anomaly_edges"
-    graph_snapshots: "/opt/app/data/delta/graph_snapshots"
-    account_graph_metrics: "/opt/app/data/delta/account_graph_metrics"
-    processing_progress: "/opt/app/data/delta/processing_progress"
-    publication_progress: "/opt/app/data/delta/publication_progress"
+    bronze_transactions: "data/delta/bronze_transactions"
+    silver_transactions: "data/delta/silver_transactions"
+    quarantined_transactions: "data/delta/quarantined_transactions"
+    fraud_alerts: "data/delta/fraud_alerts"
+    anomaly_vertices: "data/delta/anomaly_vertices"
+    anomaly_edges: "data/delta/anomaly_edges"
+    graph_snapshots: "data/delta/graph_snapshots"
+    account_graph_metrics: "data/delta/account_graph_metrics"
+    processing_progress: "data/delta/processing_progress"
+    publication_progress: "data/delta/publication_progress"
 
 # ---------------------------------------------------------------------------
 # Checkpoints (MUST be separate from graph checkpoints)
 # ---------------------------------------------------------------------------
 checkpoints:
-  streaming: "/opt/app/data/checkpoints"
-  graph: "/opt/app/data/graph_checkpoints"
+  streaming: "data/checkpoints"
+  graph: "data/graph_checkpoints"
 
 # ---------------------------------------------------------------------------
 # Temporal / Window Configuration
