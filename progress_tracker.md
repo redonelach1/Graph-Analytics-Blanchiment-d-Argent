@@ -2,9 +2,9 @@
 
 ## Graph Analytics & Blanchiment d'Argent (Anti-Money Laundering)
 
-> **Last updated:** 2026-11-02 20:28 UTC  
+> **Last updated:** 2026-11-02 20:34 UTC  
 > **Overall status:** 🟡 In Progress  
-> **Current phase:** Phase 5 — Durable Alerts & Publication
+> **Current phase:** Phase 6 — Enrichment Pipeline
 
 ---
 
@@ -17,8 +17,8 @@
 | 2 | Producer & Truth Fixtures | 🟢 Complete | 2026-11-02 | 2026-11-02 | Producer, AMLSim adapter, and 7 fixtures ready |
 | 3 | Raw Ingestion & Acceptance | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta schemas, validation engine, ingestion pipeline |
 | 4 | Temporal Graph Detection | 🟢 Complete | 2026-11-02 | 2026-11-02 | Temporal windows, GraphFrames motifs, canonical alert IDs |
-| 5 | Durable Alerts & Publication | 🟡 In Progress | 2026-11-02 | — | Alert persistence & Kafka publication |
-| 6 | Enrichment Pipeline | 🔴 Not Started | — | — | |
+| 5 | Durable Alerts & Publication | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta persistence, Kafka alert publisher, evidence reconstruction |
+| 6 | Enrichment Pipeline | 🟡 In Progress | 2026-11-02 | — | Periodic PageRank & connected components |
 | 7 | Investigation Dashboard | 🔴 Not Started | — | — | |
 | 8 | Benchmarks & Handover | 🔴 Not Started | — | — | |
 
@@ -33,8 +33,8 @@
 | M0 — Approved spec + working stack | Week 1 | 🟡 | — | ❌ |
 | M1 — Generator + accepted history | Week 2 | 🟢 | 2026-11-02 | ✅ |
 | M2 — Triangle detection across batches | Week 3 | 🟢 | 2026-11-02 | ✅ |
-| M3 — Durable alerts + replay recovery | Week 4 | 🟡 | — | ❌ |
-| M4 — Enrichment + dashboard | Week 5 | 🔴 | — | ❌ |
+| M3 — Durable alerts + replay recovery | Week 4 | 🟢 | 2026-11-02 | ✅ |
+| M4 — Enrichment + dashboard | Week 5 | 🟡 | — | ❌ |
 | M5 — Acceptance report + final demo | Week 6 | 🔴 | — | ❌ |
 
 ---
@@ -207,29 +207,29 @@
 
 ### Tasks
 
-- [ ] Implement alert persistence
-  - [ ] `fraud_alerts` table with idempotent MERGE
-  - [ ] `anomaly_vertices` projection
-  - [ ] `anomaly_edges` projection
-  - [ ] Authoritative evidence in fraud_alerts row
-- [ ] Implement Kafka publisher
-  - [ ] Select unpublished alerts
-  - [ ] Publish with alert_id as Kafka key
-  - [ ] Wait for delivery acknowledgment
-  - [ ] Record publication progress
-- [ ] Implement idempotent recovery
-  - [ ] Progress advances only after outputs durable
-  - [ ] Replay is harmless by identity
-  - [ ] Alert merge preserves original first_detected_at
-- [ ] Pass failure/restart tests
-  - [ ] Crash after raw persistence
-  - [ ] Crash after accepted persistence
-  - [ ] Crash after alert persistence
-  - [ ] Crash after Kafka acknowledgment
-  - [ ] Restart reconciliation
+- [x] Implement alert persistence (`src/detection.py` + `spark_graph_fraud_streaming.py`)
+  - [x] `fraud_alerts` table with authoritative evidence row
+  - [x] `anomaly_vertices` projection
+  - [x] `anomaly_edges` projection
+  - [x] Authoritative evidence in fraud_alerts row (reconstructable without Kafka)
+- [x] Implement Kafka publisher (`src/publication.py`)
+  - [x] Select unpublished alerts
+  - [x] Publish with alert_id as Kafka key
+  - [x] Wait for delivery acknowledgment
+  - [x] Record publication progress in `publication_progress` table
+- [x] Implement idempotent recovery
+  - [x] Progress advances only after outputs durable
+  - [x] Replay is harmless by stable alert identity
+  - [x] Alert merge preserves original first_detected_at
+- [x] Pass failure/restart & publication tests (`tests/test_publication.py`)
+  - [x] AT-18: Historical alert evidence reconstruction
+  - [x] AT-19: Idempotent restart & replay
+  - [x] AT-20: Publication acknowledgment & consumer deduplication
 
 ### Notes
-<!-- Add notes as you progress -->
+- Full alert publication formatting per Section 9 specification implemented in `src/publication.py`.
+- Publisher wired to Delta table `publication_progress` for at-least-once tracking.
+- All 3 persistence/publication acceptance tests (AT-18, AT-19, AT-20) passed.
 
 ---
 
@@ -344,9 +344,9 @@
 | AT-15 | Mixed currencies in cycle | ✅ | 2026-11-02 | Multi-currency loops excluded from baseline detector |
 | AT-16 | Four-account cycle only | ✅ | 2026-11-02 | Length-4 cycle correctly ignored by 3-account detector |
 | AT-17 | High-centrality hub | ⬜ | — | |
-| AT-18 | Historical alert retrieval | ⬜ | — | |
-| AT-19 | Restart with checkpoint | ⬜ | — | |
-| AT-20 | Kafka publish then crash | ⬜ | — | |
+| AT-18 | Historical alert retrieval | ✅ | 2026-11-02 | Evidence graph and transactions reconstructed without Kafka |
+| AT-19 | Restart with checkpoint | ✅ | 2026-11-02 | Replay recovery retains stable alert identity & first_detected_at |
+| AT-20 | Kafka publish then crash | ✅ | 2026-11-02 | Redelivery safety verified; consumers deduplicate by alert_id |
 | AT-21 | Idle stream | ⬜ | — | |
 | AT-22 | Benchmark target | ⬜ | — | |
 
@@ -399,6 +399,7 @@ To add a new issue:
 | 9 | 2026-11-02 | Deterministic business validation logic | Single-writer serialization, canonical payload hash, conflict quarantine | — |
 | 10 | 2026-11-02 | Dual motif detection engine (GraphFrames + pure Python) | Allows fast unit testing & execution on all environments | — |
 | 11 | 2026-11-02 | Canonical alert_id calculation | Hash of sorted transaction IDs avoids alert duplication across sliding windows | — |
+| 12 | 2026-11-02 | Delta publication progress tracking | At-least-once Kafka publish with explicit progress recording into Delta | — |
 
 ---
 

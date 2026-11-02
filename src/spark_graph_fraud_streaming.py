@@ -416,8 +416,83 @@ def run_enrich(config: Dict[str, Any], spark: "SparkSession"):
     logger.info("[ENRICH] Periodic graph enrichment worker stub (Implemented in Phase 6)")
 
 
+# =============================================================================
+# Publisher Worker: Unpublished Alerts -> Kafka 'fraud-alerts'
+# =============================================================================
+
 def run_publish(config: Dict[str, Any], spark: "SparkSession"):
-    logger.info("[PUBLISH] Kafka alert publisher worker stub (Implemented in Phase 5)")
+    """
+    Scans fraud_alerts for rows lacking publication progress, publishes them
+    to Kafka topic 'fraud-alerts', and records publication progress idempotently.
+    """
+    from publication import AlertPublisher
+
+    storage_cfg = config.get("storage", {}).get("tables", {})
+    alerts_path = storage_cfg.get("fraud_alerts", "data/delta/fraud_alerts")
+    progress_path = storage_cfg.get("publication_progress", "data/delta/publication_progress")
+
+    kafka_cfg = config.get("kafka", {})
+    bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", kafka_cfg.get("bootstrap_servers", "localhost:9092"))
+    alerts_topic = kafka_cfg.get("topics", {}).get("alerts", "fraud-alerts")
+
+    logger.info(f"[PUBLISH] Monitoring alerts at {alerts_path}")
+    logger.info(f"[PUBLISH] Publishing to Kafka topic: {alerts_topic} at {bootstrap}")
+
+    if not os.path.exists(alerts_path):
+        logger.warning(f"[PUBLISH] Alerts path {alerts_path} does not exist yet. Exiting.")
+        return
+
+    # 1. Load alerts
+    alerts_df = spark.read.format("delta").load(alerts_path)
+    if alerts_df.rdd.isEmpty():
+        logger.info("[PUBLISH] No alerts present in table.")
+        return
+
+    # 2. Check already published alert IDs
+    published_ids = set()
+    if os.path.exists(progress_path):
+        try:
+            progress_df = spark.read.format("delta").load(progress_path)
+            if not progress_df.rdd.isEmpty():
+                published_ids = {r.alert_id for r in progress_df.select("alert_id").collect()}
+        except Exception as e:
+            logger.debug(f"Could not load publication progress: {e}")
+
+    # 3. Filter unpublished alerts
+    unpub_df = alerts_df.filter(~F.col("alert_id").isin(list(published_ids))) if published_ids else alerts_df
+    unpub_count = unpub_df.count()
+
+    if unpub_count == 0:
+        logger.info("[PUBLISH] All alerts have already been published. Nothing to do.")
+        return
+
+    logger.info(f"[PUBLISH] Found {unpub_count} unpublished alert(s). Starting publication...")
+    publisher = AlertPublisher(bootstrap_servers=bootstrap, topic=alerts_topic)
+
+    progress_records = []
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    for row in unpub_df.collect():
+        alert_dict = row.asDict()
+        success = publisher.publish_alert(alert_dict)
+        if success:
+            progress_records.append({
+                "alert_id": alert_dict["alert_id"],
+                "published_at": now_utc,
+                "attempt_metadata": f"published_to_{alerts_topic}",
+            })
+
+    publisher.flush()
+
+    # 4. Record progress to publication_progress Delta table
+    if progress_records:
+        prog_df = spark.createDataFrame(progress_records)
+        (
+            prog_df.write.format("delta")
+            .mode("append")
+            .save(progress_path)
+        )
+        logger.info(f"[PUBLISH] Successfully recorded progress for {len(progress_records)} alerts")
 
 
 def main():
