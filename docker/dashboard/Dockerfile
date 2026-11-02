@@ -9,12 +9,15 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Install production dependencies
+# Install dependencies
 COPY dashboard/package*.json ./
-RUN npm install --omit=dev
+RUN npm install
 
 # Copy application source
 COPY dashboard ./
+
+# Build production Next.js application
+RUN npm run build
 
 EXPOSE 3000
 
