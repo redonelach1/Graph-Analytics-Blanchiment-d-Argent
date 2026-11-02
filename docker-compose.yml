@@ -1,0 +1,232 @@
+version: '3.8'
+
+# =============================================================================
+# Mini-Projet 17 — Graph Analytics & Anti-Money Laundering
+# Docker Compose — Local Development Environment
+# =============================================================================
+# Services:
+#   - kafka        : Message broker (KRaft mode, no Zookeeper)
+#   - kafka-ui     : Web UI for Kafka topic inspection
+#   - spark-master : Spark master node
+#   - spark-worker : Spark worker node
+#   - spark-app    : Main streaming application (submit jobs here)
+#   - dashboard    : Streamlit + PyVis investigation UI
+# =============================================================================
+
+networks:
+  aml-network:
+    driver: bridge
+
+volumes:
+  delta-data:
+    driver: local
+  checkpoint-data:
+    driver: local
+  graph-checkpoint-data:
+    driver: local
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Apache Kafka — KRaft mode (no Zookeeper required)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: bitnami/kafka:3.5
+    container_name: aml-kafka
+    hostname: kafka
+    networks:
+      - aml-network
+    ports:
+      - "9092:9092"     # External (host) access
+      - "9094:9094"     # Internal (container) access
+    environment:
+      # KRaft mode
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      # Listeners — separate internal/external
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9094,EXTERNAL://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9094,EXTERNAL://localhost:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      # Topic defaults
+      - KAFKA_CFG_NUM_PARTITIONS=3
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
+      - KAFKA_CFG_LOG_RETENTION_HOURS=168
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    volumes:
+      - kafka-data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9094 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Kafka Init — Create required topics on startup
+  # ---------------------------------------------------------------------------
+  kafka-init:
+    image: bitnami/kafka:3.5
+    container_name: aml-kafka-init
+    networks:
+      - aml-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      echo '--- Creating Kafka topics ---'
+      kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists \
+        --topic financial-transactions --partitions 3 --replication-factor 1
+      kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists \
+        --topic fraud-alerts --partitions 3 --replication-factor 1
+      echo '--- Topics created ---'
+      kafka-topics.sh --bootstrap-server kafka:9094 --list
+      "
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Kafka UI — Web interface for topic inspection
+  # ---------------------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: aml-kafka-ui
+    networks:
+      - aml-network
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=aml-local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9094
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Spark Master
+  # ---------------------------------------------------------------------------
+  spark-master:
+    image: bitnami/spark:3.5
+    container_name: aml-spark-master
+    hostname: spark-master
+    networks:
+      - aml-network
+    ports:
+      - "8080:8080"   # Spark Master Web UI
+      - "7077:7077"   # Spark master port
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    volumes:
+      - ./src:/opt/app/src:ro
+      - ./config:/opt/app/config:ro
+      - ./tests:/opt/app/tests:ro
+      - delta-data:/opt/app/data/delta
+      - checkpoint-data:/opt/app/data/checkpoints
+      - graph-checkpoint-data:/opt/app/data/graph_checkpoints
+
+  # ---------------------------------------------------------------------------
+  # Spark Worker
+  # ---------------------------------------------------------------------------
+  spark-worker:
+    image: bitnami/spark:3.5
+    container_name: aml-spark-worker
+    hostname: spark-worker
+    networks:
+      - aml-network
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=4
+      - SPARK_WORKER_MEMORY=4g
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    depends_on:
+      - spark-master
+    volumes:
+      - ./src:/opt/app/src:ro
+      - ./config:/opt/app/config:ro
+      - delta-data:/opt/app/data/delta
+      - checkpoint-data:/opt/app/data/checkpoints
+      - graph-checkpoint-data:/opt/app/data/graph_checkpoints
+
+  # ---------------------------------------------------------------------------
+  # Spark Application — Submits jobs to the cluster
+  # ---------------------------------------------------------------------------
+  spark-app:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    container_name: aml-spark-app
+    hostname: spark-app
+    networks:
+      - aml-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+      spark-worker:
+        condition: service_started
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9094
+      - DELTA_BASE_PATH=/opt/app/data/delta
+      - CHECKPOINT_BASE_PATH=/opt/app/data/checkpoints
+      - GRAPH_CHECKPOINT_PATH=/opt/app/data/graph_checkpoints
+      - APP_CONFIG_PATH=/opt/app/config/default.yaml
+    volumes:
+      - ./src:/opt/app/src
+      - ./config:/opt/app/config
+      - ./tests:/opt/app/tests
+      - ./scripts:/opt/app/scripts
+      - ./data/datasets:/opt/app/data/datasets:ro
+      - delta-data:/opt/app/data/delta
+      - checkpoint-data:/opt/app/data/checkpoints
+      - graph-checkpoint-data:/opt/app/data/graph_checkpoints
+    stdin_open: true
+    tty: true
+    # Default: keep container alive for interactive job submission
+    command: ["tail", "-f", "/dev/null"]
+
+  # ---------------------------------------------------------------------------
+  # Dashboard — Streamlit + PyVis Investigation UI
+  # ---------------------------------------------------------------------------
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard/Dockerfile
+    container_name: aml-dashboard
+    hostname: dashboard
+    networks:
+      - aml-network
+    ports:
+      - "8501:8501"
+    environment:
+      - DELTA_BASE_PATH=/opt/app/data/delta
+      - APP_CONFIG_PATH=/opt/app/config/default.yaml
+    volumes:
+      - ./src:/opt/app/src:ro
+      - ./config:/opt/app/config:ro
+      - delta-data:/opt/app/data/delta:ro
+    depends_on:
+      - spark-master
+    command: ["streamlit", "run", "/opt/app/src/graph_network_dashboard.py",
+              "--server.port=8501", "--server.address=0.0.0.0",
+              "--server.headless=true"]
+
+volumes:
+  kafka-data:
+    driver: local
+

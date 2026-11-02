@@ -1,0 +1,17 @@
+# =============================================================================
+# Python Dependencies — Spark Application
+# =============================================================================
+# Core
+pyspark==3.5.1
+delta-spark==3.3.0
+graphframes==0.6
+
+# Kafka
+confluent-kafka==2.3.0
+
+# Data processing
+pyyaml==6.0.1
+
+# Testing
+pytest==7.4.4
+

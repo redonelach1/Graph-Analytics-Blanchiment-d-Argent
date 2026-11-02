@@ -1,0 +1,49 @@
+# =============================================================================
+# .gitignore — Mini-Projet 17
+# =============================================================================
+
+# Data directories (large files, datasets, Delta tables)
+data/delta/
+data/checkpoints/
+data/graph_checkpoints/
+data/datasets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+docker/spark/*.jar
+
+# Secrets / credentials
+.env
+*.key
+*.pem
+
+# Temporary
+*.tmp
+*.log
+scratch/
+
+# PyVis generated HTML
+graph.html
+

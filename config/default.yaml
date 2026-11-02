@@ -1,0 +1,110 @@
+# =============================================================================
+# Application Configuration — Default (Local Docker Development)
+# Mini-Projet 17 — AML Graph Analytics
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Kafka
+# ---------------------------------------------------------------------------
+kafka:
+  bootstrap_servers: "kafka:9094"
+  topics:
+    transactions: "financial-transactions"
+    alerts: "fraud-alerts"
+  producer:
+    acks: "all"
+    linger_ms: 10
+    batch_size: 16384
+  consumer:
+    group_id: "aml-spark-consumer"
+    auto_offset_reset: "earliest"
+
+# ---------------------------------------------------------------------------
+# Delta Lake Storage Paths
+# ---------------------------------------------------------------------------
+storage:
+  delta_base: "/opt/app/data/delta"
+  tables:
+    bronze_transactions: "/opt/app/data/delta/bronze_transactions"
+    silver_transactions: "/opt/app/data/delta/silver_transactions"
+    quarantined_transactions: "/opt/app/data/delta/quarantined_transactions"
+    fraud_alerts: "/opt/app/data/delta/fraud_alerts"
+    anomaly_vertices: "/opt/app/data/delta/anomaly_vertices"
+    anomaly_edges: "/opt/app/data/delta/anomaly_edges"
+    graph_snapshots: "/opt/app/data/delta/graph_snapshots"
+    account_graph_metrics: "/opt/app/data/delta/account_graph_metrics"
+    processing_progress: "/opt/app/data/delta/processing_progress"
+    publication_progress: "/opt/app/data/delta/publication_progress"
+
+# ---------------------------------------------------------------------------
+# Checkpoints (MUST be separate from graph checkpoints)
+# ---------------------------------------------------------------------------
+checkpoints:
+  streaming: "/opt/app/data/checkpoints"
+  graph: "/opt/app/data/graph_checkpoints"
+
+# ---------------------------------------------------------------------------
+# Temporal / Window Configuration
+# ---------------------------------------------------------------------------
+window:
+  length_seconds: 600          # 10 minutes
+  slide_seconds: 30            # 30-second slide
+  watermark_seconds: 120       # 2-minute watermark
+
+# ---------------------------------------------------------------------------
+# Lateness Policy
+# ---------------------------------------------------------------------------
+lateness:
+  future_skew_tolerance_seconds: 60   # Reject events >60s in the future
+
+# ---------------------------------------------------------------------------
+# Detection
+# ---------------------------------------------------------------------------
+detection:
+  rule_id: "TEMPORAL_TRIANGLE"
+  rule_version: 1
+  supported_currencies:
+    - "MAD"
+
+# ---------------------------------------------------------------------------
+# Risk Thresholds (uncalibrated — demonstration only)
+# ---------------------------------------------------------------------------
+risk:
+  high_min_amount: 100000.0    # MAD — minimum edge amount for HIGH
+  high_ratio_tolerance: 2.0    # max/min ratio for HIGH
+  medium_min_amount: 10000.0   # MAD — minimum edge amount for MEDIUM
+
+# ---------------------------------------------------------------------------
+# Enrichment
+# ---------------------------------------------------------------------------
+enrichment:
+  interval_seconds: 60
+  pagerank:
+    reset_probability: 0.15
+    max_iterations: 10
+  snapshot_window_minutes: 10
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+dashboard:
+  max_nodes: 300
+  max_edges: 1000
+  cache_ttl_seconds: 60
+
+# ---------------------------------------------------------------------------
+# Producer (synthetic data)
+# ---------------------------------------------------------------------------
+producer:
+  default_rate: 10             # transactions per second
+  default_seed: 42
+  num_accounts: 100
+  amount_range:
+    min: 100.0
+    max: 500000.0
+  operation_types:
+    - "VIREMENT_COMMERCIAL"
+    - "VIREMENT_PERSONNEL"
+    - "TRANSFERT_INTERNATIONAL"
+    - "PAIEMENT_FACTURE"
+
