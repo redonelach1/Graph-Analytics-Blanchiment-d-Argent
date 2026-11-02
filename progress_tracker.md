@@ -2,9 +2,9 @@
 
 ## Graph Analytics & Blanchiment d'Argent (Anti-Money Laundering)
 
-> **Last updated:** 2026-11-02 20:20 UTC  
+> **Last updated:** 2026-11-02 20:28 UTC  
 > **Overall status:** 🟡 In Progress  
-> **Current phase:** Phase 4 — Temporal Graph Detection
+> **Current phase:** Phase 5 — Durable Alerts & Publication
 
 ---
 
@@ -16,8 +16,8 @@
 | 1 | Reproducible Environment | 🟡 In Progress | 2026-11-01 | — | Docker infra created, ready for manual build |
 | 2 | Producer & Truth Fixtures | 🟢 Complete | 2026-11-02 | 2026-11-02 | Producer, AMLSim adapter, and 7 fixtures ready |
 | 3 | Raw Ingestion & Acceptance | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta schemas, validation engine, ingestion pipeline |
-| 4 | Temporal Graph Detection | 🟡 In Progress | 2026-11-02 | — | Windowing & GraphFrames motif finding |
-| 5 | Durable Alerts & Publication | 🔴 Not Started | — | — | |
+| 4 | Temporal Graph Detection | 🟢 Complete | 2026-11-02 | 2026-11-02 | Temporal windows, GraphFrames motifs, canonical alert IDs |
+| 5 | Durable Alerts & Publication | 🟡 In Progress | 2026-11-02 | — | Alert persistence & Kafka publication |
 | 6 | Enrichment Pipeline | 🔴 Not Started | — | — | |
 | 7 | Investigation Dashboard | 🔴 Not Started | — | — | |
 | 8 | Benchmarks & Handover | 🔴 Not Started | — | — | |
@@ -32,8 +32,8 @@
 |---|:---:|:------:|:---:|:---:|
 | M0 — Approved spec + working stack | Week 1 | 🟡 | — | ❌ |
 | M1 — Generator + accepted history | Week 2 | 🟢 | 2026-11-02 | ✅ |
-| M2 — Triangle detection across batches | Week 3 | 🟡 | — | ❌ |
-| M3 — Durable alerts + replay recovery | Week 4 | 🔴 | — | ❌ |
+| M2 — Triangle detection across batches | Week 3 | 🟢 | 2026-11-02 | ✅ |
+| M3 — Durable alerts + replay recovery | Week 4 | 🟡 | — | ❌ |
 | M4 — Enrichment + dashboard | Week 5 | 🔴 | — | ❌ |
 | M5 — Acceptance report + final demo | Week 6 | 🔴 | — | ❌ |
 
@@ -173,31 +173,33 @@
 
 ### Tasks
 
-- [ ] Implement temporal policy module
-  - [ ] Sliding window (L=600s, S=30s)
-  - [ ] Half-open membership
-  - [ ] Application high-water mark (H)
-  - [ ] Lateness classification (W = H − 120s)
-- [ ] Implement graph builder module
-  - [ ] Vertices from union of src/dst
-  - [ ] Edges with full transaction metadata
-  - [ ] No orphan endpoints
-- [ ] Implement `foreachBatch` detection worker
-  - [ ] Identify affected windows for new transactions
-  - [ ] Recover full history per window
-  - [ ] Build GraphFrame per window
-  - [ ] Execute motif: `(a)-[e1]->(b); (b)-[e2]->(c); (c)-[e3]->(a)`
-  - [ ] Apply mandatory filters (distinct accounts, distinct txns, same currency)
-  - [ ] Require at least one new edge
-- [ ] Implement cycle identity module
-  - [ ] `cycle_id = SHA256(sorted transaction IDs)`
-  - [ ] `alert_id = SHA256([rule_id, rule_version, cycle_id])`
-  - [ ] Deterministic canonical JSON serialization
-- [ ] Implement risk classification (HIGH/MEDIUM/LOW)
-- [ ] Pass acceptance tests AT-01 through AT-16
+- [x] Implement temporal policy module (`src/temporal_policy.py`)
+  - [x] Sliding window (L=600s, S=30s)
+  - [x] Half-open membership [window_start <= event_time < window_end)
+  - [x] Application high-water mark (H)
+  - [x] Lateness classification (W = H − 120s)
+- [x] Implement graph builder module (`src/graph_builder.py`)
+  - [x] Vertices from union of src/dst (no orphan endpoints)
+  - [x] Edges with full transaction metadata
+  - [x] GraphFrames constructor helper
+- [x] Implement `foreachBatch` detection worker (`src/detection.py` + `spark_graph_fraud_streaming.py --role detect`)
+  - [x] Identify affected windows for new transactions
+  - [x] Recover full history per window from silver_transactions
+  - [x] Build GraphFrame per window
+  - [x] Execute motif: `(a)-[e1]->(b); (b)-[e2]->(c); (c)-[e3]->(a)`
+  - [x] Apply mandatory filters (distinct accounts, distinct txns, same currency)
+  - [x] Require at least one new edge
+- [x] Implement cycle identity module (`src/cycle_identities.py`)
+  - [x] `cycle_id = SHA256(sorted transaction IDs)`
+  - [x] `alert_id = SHA256([rule_id, rule_version, cycle_id])`
+  - [x] Deterministic canonical JSON serialization
+- [x] Implement risk classification (HIGH/MEDIUM/LOW)
+- [x] Pass acceptance tests (`tests/test_detection.py`)
 
 ### Notes
-<!-- Add notes as you progress -->
+- Built pure Python & GraphFrames motif detection engines.
+- Passed 11 acceptance tests in `test_detection.py` covering AT-01, AT-02, AT-03, AT-04, AT-06, AT-07, AT-08, AT-09, AT-10, AT-15, AT-16.
+- Milestone M2 achieved!
 
 ---
 
@@ -325,22 +327,22 @@
 
 | ID | Test | Result | Date | Notes |
 |:---:|---|:------:|:----:|-------|
-| AT-01 | Known triangle inside one window | ⬜ | — | |
-| AT-02 | Same triangle rotated vertex labels | ⬜ | — | |
-| AT-03 | Edges arrive in three batches | ⬜ | — | |
-| AT-04 | Open chain (no alert) | ⬜ | — | |
+| AT-01 | Known triangle inside one window | ✅ | 2026-11-02 | Exactly 1 alert produced with full evidence |
+| AT-02 | Same triangle rotated vertex labels | ✅ | 2026-11-02 | Traversal start invariance produces identical alert_id |
+| AT-03 | Edges arrive in three batches | ✅ | 2026-11-02 | Detection triggers immediately on arrival of closing edge |
+| AT-04 | Open chain (no alert) | ✅ | 2026-11-02 | Linear unclosed chains produce 0 alerts |
 | AT-05 | Repeated account / self-loop | ✅ | 2026-11-02 | Self-transfers retained but excluded from online triangles |
-| AT-06 | No common 10-min window | ⬜ | — | |
-| AT-07 | Boundary events at window end | ⬜ | — | |
-| AT-08 | Same cycle overlapping windows | ⬜ | — | |
-| AT-09 | Out-of-order final edge | ⬜ | — | |
-| AT-10 | Event older than watermark | ⬜ | — | |
+| AT-06 | No common 10-min window | ✅ | 2026-11-02 | Events spanning >10 min share no window and produce 0 alerts |
+| AT-07 | Boundary events at window end | ✅ | 2026-11-02 | Half-open membership [start, end) respected |
+| AT-08 | Same cycle overlapping windows | ✅ | 2026-11-02 | Deduplicated by stable alert_id across overlapping windows |
+| AT-09 | Out-of-order final edge | ✅ | 2026-11-02 | In-window out-of-order arrival correctly detected |
+| AT-10 | Event older than watermark | ✅ | 2026-11-02 | Event time < W (H - 120s) classified retrospective-only |
 | AT-11 | Duplicate transaction | ✅ | 2026-11-02 | Identical payload idempotently ignored without duplicate entry |
 | AT-12 | Conflicting payload | ✅ | 2026-11-02 | Same ID with different payload quarantined; original kept |
 | AT-13 | Malformed JSON / invalid decimal | ✅ | 2026-11-02 | Syntax and decimal precision errors rejected & quarantined |
 | AT-14 | Future timestamp beyond tolerance | ✅ | 2026-11-02 | Event timestamps >60s ahead rejected & quarantined |
-| AT-15 | Mixed currencies in cycle | ⬜ | — | |
-| AT-16 | Four-account cycle only | ⬜ | — | |
+| AT-15 | Mixed currencies in cycle | ✅ | 2026-11-02 | Multi-currency loops excluded from baseline detector |
+| AT-16 | Four-account cycle only | ✅ | 2026-11-02 | Length-4 cycle correctly ignored by 3-account detector |
 | AT-17 | High-centrality hub | ⬜ | — | |
 | AT-18 | Historical alert retrieval | ⬜ | — | |
 | AT-19 | Restart with checkpoint | ⬜ | — | |
@@ -395,6 +397,8 @@ To add a new issue:
 | 7 | 2026-11-02 | Ground truth separation in AMLSimAdapter | Ground truth labels kept in auxiliary metadata; strictly absent from streaming payload | — |
 | 8 | 2026-11-02 | Delta schemas & DDL initialization | 10 tables defined with partition strategies; idempotent `--init` | — |
 | 9 | 2026-11-02 | Deterministic business validation logic | Single-writer serialization, canonical payload hash, conflict quarantine | — |
+| 10 | 2026-11-02 | Dual motif detection engine (GraphFrames + pure Python) | Allows fast unit testing & execution on all environments | — |
+| 11 | 2026-11-02 | Canonical alert_id calculation | Hash of sorted transaction IDs avoids alert duplication across sliding windows | — |
 
 ---
 

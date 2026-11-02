@@ -235,8 +235,181 @@ def run_acceptance(config: Dict[str, Any], spark: "SparkSession"):
 # Placeholder stubs for upcoming Phases (Detect, Enrich, Publish)
 # =============================================================================
 
+# =============================================================================
+# Detection Worker: Silver -> Triangle Motifs -> Fraud Alerts Delta Table
+# =============================================================================
+
+def process_detection_batch(batch_df, batch_id: int, config: Dict[str, Any], spark: "SparkSession"):
+    """
+    Processes a micro-batch of new silver transactions:
+    1. Identifies affected 10-minute sliding windows (30s slide).
+    2. Recovers history for each window from silver_transactions.
+    3. Executes GraphFrames motif finding for directed triangles.
+    4. Writes alerts and evidence to fraud_alerts, anomaly_vertices, and anomaly_edges.
+    """
+    if batch_df.rdd.isEmpty():
+        return
+
+    logger.info(f"[DETECT] Processing micro-batch {batch_id} for triangle motifs")
+
+    from detection import detect_triangles_graphframes, detect_triangles_in_window
+    from graph_builder import build_graphframe
+    from temporal_policy import TemporalWindowPolicy
+
+    storage_cfg = config.get("storage", {}).get("tables", {})
+    silver_path = storage_cfg.get("silver_transactions", "data/delta/silver_transactions")
+    alerts_path = storage_cfg.get("fraud_alerts", "data/delta/fraud_alerts")
+    vertices_path = storage_cfg.get("anomaly_vertices", "data/delta/anomaly_vertices")
+    edges_path = storage_cfg.get("anomaly_edges", "data/delta/anomaly_edges")
+
+    win_len = config.get("window", {}).get("length_seconds", 600)
+    win_slide = config.get("window", {}).get("slide_seconds", 30)
+    policy = TemporalWindowPolicy(window_length_seconds=win_len, slide_seconds=win_slide)
+
+    new_rows = batch_df.filter(F.col("online_eligible") == True).collect()
+    if not new_rows:
+        return
+
+    new_txn_ids = {r.transaction_id for r in new_rows}
+
+    # Find unique affected windows across all new transactions
+    affected_windows = set()
+    for r in new_rows:
+        ts = r.event_time
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        windows = policy.get_aligned_windows(ts)
+        affected_windows.update(windows)
+
+    logger.info(f"[DETECT] Batch {batch_id} touches {len(affected_windows)} sliding windows")
+
+    discovered_alerts = []
+    seen_cycle_ids = set()
+
+    for w_start, w_end in sorted(list(affected_windows)):
+        # Read transactions falling in [w_start, w_end)
+        w_start_str = w_start.strftime("%Y-%m-%d %H:%M:%S")
+        w_end_str = w_end.strftime("%Y-%m-%d %H:%M:%S")
+
+        silver_full = spark.read.format("delta").load(silver_path)
+        window_txns_df = silver_full.filter(
+            (F.col("online_eligible") == True)
+            & (F.col("event_time") >= w_start_str)
+            & (F.col("event_time") < w_end_str)
+        )
+
+        if window_txns_df.rdd.isEmpty():
+            continue
+
+        try:
+            # GraphFrames motif finding
+            g = build_graphframe(window_txns_df, spark)
+            window_alerts = detect_triangles_graphframes(
+                g, new_txn_ids, config, window_start=w_start, window_end=w_end
+            )
+        except Exception as e:
+            # Fallback to pure Python detector on local collects
+            logger.debug(f"Using fallback detector for window: {e}")
+            window_txns_list = [row.asDict() for row in window_txns_df.collect()]
+            window_alerts = detect_triangles_in_window(
+                window_txns_list, new_txn_ids, config, window_start=w_start, window_end=w_end
+            )
+
+        for al in window_alerts:
+            if al["cycle_id"] not in seen_cycle_ids:
+                seen_cycle_ids.add(al["cycle_id"])
+                discovered_alerts.append(al)
+
+    if not discovered_alerts:
+        return
+
+    logger.info(f"[DETECT] Discovered {len(discovered_alerts)} fraud alerts in batch {batch_id}")
+
+    # Build Alert DataFrames and persist to Delta Lake
+    alert_rows = []
+    vertex_rows = []
+    edge_rows = []
+
+    for al in discovered_alerts:
+        alert_rows.append({
+            "alert_id": al["alert_id"],
+            "cycle_id": al["cycle_id"],
+            "rule_id": al["rule_id"],
+            "rule_version": al["rule_version"],
+            "risk_level": al["risk_level"],
+            "evidence_json": al["evidence_json"],
+            "reason_codes": al["reason_codes"],
+            "first_detected_at": al["first_detected_at"],
+            "event_min": al["event_min"],
+            "event_max": al["event_max"],
+            "dt": al["dt"],
+        })
+
+        # Anomaly Vertices projection
+        for acct in al["account_ids"]:
+            vertex_rows.append({
+                "alert_id": al["alert_id"],
+                "account_id": acct,
+                "risk_level": al["risk_level"],
+                "dt": al["dt"],
+            })
+
+        # Anomaly Edges projection
+        evidence = json.loads(al["evidence_json"])
+        for edge in evidence.get("edges", []):
+            edge_rows.append({
+                "alert_id": al["alert_id"],
+                "transaction_id": edge["transaction_id"],
+                "src": edge["src"],
+                "dst": edge["dst"],
+                "amount": edge["amount"],
+                "currency": edge["currency"],
+                "event_time": edge["time"],
+                "risk_level": al["risk_level"],
+                "dt": al["dt"],
+            })
+
+    # Save to fraud_alerts (partitioned by risk_level, dt)
+    alerts_df = spark.createDataFrame(alert_rows)
+    (
+        alerts_df.write.format("delta")
+        .mode("append")
+        .partitionBy("risk_level", "dt")
+        .save(alerts_path)
+    )
+
+    # Save projections
+    if vertex_rows:
+        spark.createDataFrame(vertex_rows).write.format("delta").mode("append").partitionBy("risk_level", "dt").save(vertices_path)
+    if edge_rows:
+        spark.createDataFrame(edge_rows).write.format("delta").mode("append").partitionBy("risk_level", "dt").save(edges_path)
+
+    logger.info(f"[DETECT] Durable alert persistence complete for {len(alert_rows)} alerts")
+
+
 def run_detect(config: Dict[str, Any], spark: "SparkSession"):
-    logger.info("[DETECT] Detection worker stub (Implemented in Phase 4)")
+    """
+    Streams from silver_transactions and detects temporal triangle motifs via foreachBatch.
+    """
+    storage_cfg = config.get("storage", {}).get("tables", {})
+    checkpoint_cfg = config.get("checkpoints", {})
+
+    silver_path = storage_cfg.get("silver_transactions", "data/delta/silver_transactions")
+    checkpoint_path = os.path.join(checkpoint_cfg.get("streaming", "data/checkpoints"), "detect")
+
+    logger.info(f"[DETECT] Streaming from silver table: {silver_path}")
+
+    silver_stream = spark.readStream.format("delta").load(silver_path)
+
+    query = (
+        silver_stream.writeStream
+        .foreachBatch(lambda bdf, bid: process_detection_batch(bdf, bid, config, spark))
+        .option("checkpointLocation", checkpoint_path)
+        .start()
+    )
+
+    logger.info(f"[DETECT] Query started with ID: {query.id}")
+    query.awaitTermination()
 
 
 def run_enrich(config: Dict[str, Any], spark: "SparkSession"):
