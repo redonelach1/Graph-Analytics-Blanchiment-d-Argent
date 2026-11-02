@@ -2,7 +2,7 @@
 # Spark Application Container
 # Includes: PySpark + Delta Lake + GraphFrames + Kafka connector + confluent-kafka
 # =============================================================================
-FROM bitnami/spark:3.5
+FROM bitnamilegacy/spark:3.5.1
 
 USER root
 
@@ -26,11 +26,11 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # ---------------------------------------------------------------------------
 ENV SPARK_JARS_DIR=/opt/bitnami/spark/jars
 
-# Delta Lake 3.3.0 for Spark 3.5
-RUN curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.3.0/delta-spark_2.12-3.3.0.jar" \
-    -o ${SPARK_JARS_DIR}/delta-spark_2.12-3.3.0.jar && \
-    curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-storage/3.3.0/delta-storage-3.3.0.jar" \
-    -o ${SPARK_JARS_DIR}/delta-storage-3.3.0.jar
+# Delta Lake 3.2.0 for Spark 3.5
+RUN curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.2.0/delta-spark_2.12-3.2.0.jar" \
+    -o ${SPARK_JARS_DIR}/delta-spark_2.12-3.2.0.jar && \
+    curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-storage/3.2.0/delta-storage-3.2.0.jar" \
+    -o ${SPARK_JARS_DIR}/delta-storage-3.2.0.jar
 
 # Spark Kafka connector
 RUN curl -fSL "https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.1/spark-sql-kafka-0-10_2.12-3.5.1.jar" \
