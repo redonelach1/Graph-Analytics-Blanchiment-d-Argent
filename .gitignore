@@ -47,3 +47,13 @@ scratch/
 # PyVis generated HTML
 graph.html
 
+# Node.js & Next.js
+node_modules/
+dashboard/node_modules/
+.next/
+dashboard/.next/
+out/
+dashboard/out/
+.turbo/
+
+

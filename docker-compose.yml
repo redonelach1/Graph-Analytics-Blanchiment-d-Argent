@@ -201,7 +201,7 @@ services:
     command: ["tail", "-f", "/dev/null"]
 
   # ---------------------------------------------------------------------------
-  # Dashboard — Streamlit + PyVis Investigation UI
+  # Dashboard — Next.js + shadcn/ui Investigation Web Application
   # ---------------------------------------------------------------------------
   dashboard:
     build:
@@ -212,19 +212,17 @@ services:
     networks:
       - aml-network
     ports:
-      - "8501:8501"
+      - "3000:3000"   # Next.js Investigation UI
     environment:
+      - NODE_ENV=production
       - DELTA_BASE_PATH=/opt/app/data/delta
-      - APP_CONFIG_PATH=/opt/app/config/default.yaml
     volumes:
-      - ./src:/opt/app/src:ro
-      - ./config:/opt/app/config:ro
+      - ./dashboard:/app
+      - /app/node_modules
+      - /app/.next
       - delta-data:/opt/app/data/delta:ro
     depends_on:
       - spark-master
-    command: ["streamlit", "run", "/opt/app/src/graph_network_dashboard.py",
-              "--server.port=8501", "--server.address=0.0.0.0",
-              "--server.headless=true"]
 
 volumes:
   kafka-data:

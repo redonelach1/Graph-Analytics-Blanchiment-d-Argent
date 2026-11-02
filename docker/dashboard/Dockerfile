@@ -1,20 +1,25 @@
 # =============================================================================
-# Dashboard Container — Streamlit + PyVis
+# Dashboard Container — Next.js 14+ with shadcn/ui & Tailwind CSS
 # =============================================================================
-FROM python:3.11-slim
+FROM node:20-alpine AS runner
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-COPY requirements-dashboard.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-WORKDIR /opt/app
+# Install production dependencies
+COPY dashboard/package*.json ./
+RUN npm install --omit=dev
 
-EXPOSE 8501
+# Copy application source
+COPY dashboard ./
+
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD wget -qO- http://localhost:3000/api/health || exit 1
 
+CMD ["npm", "run", "start"]
