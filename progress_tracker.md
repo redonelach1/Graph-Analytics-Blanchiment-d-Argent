@@ -2,9 +2,9 @@
 
 ## Graph Analytics & Blanchiment d'Argent (Anti-Money Laundering)
 
-> **Last updated:** 2026-11-02 20:34 UTC  
+> **Last updated:** 2026-11-02 20:41 UTC  
 > **Overall status:** 🟡 In Progress  
-> **Current phase:** Phase 6 — Enrichment Pipeline
+> **Current phase:** Phase 7 — Investigation Dashboard
 
 ---
 
@@ -18,8 +18,8 @@
 | 3 | Raw Ingestion & Acceptance | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta schemas, validation engine, ingestion pipeline |
 | 4 | Temporal Graph Detection | 🟢 Complete | 2026-11-02 | 2026-11-02 | Temporal windows, GraphFrames motifs, canonical alert IDs |
 | 5 | Durable Alerts & Publication | 🟢 Complete | 2026-11-02 | 2026-11-02 | Delta persistence, Kafka alert publisher, evidence reconstruction |
-| 6 | Enrichment Pipeline | 🟡 In Progress | 2026-11-02 | — | Periodic PageRank & connected components |
-| 7 | Investigation Dashboard | 🔴 Not Started | — | — | |
+| 6 | Enrichment Pipeline | 🟢 Complete | 2026-11-02 | 2026-11-02 | PageRank, connected components, separate checkpoints |
+| 7 | Investigation Dashboard | 🟡 In Progress | 2026-11-02 | — | Streamlit + PyVis interactive investigation UI |
 | 8 | Benchmarks & Handover | 🔴 Not Started | — | — | |
 
 **Legend:** 🔴 Not Started · 🟡 In Progress · 🟢 Complete · 🔵 Blocked · ⚪ Skipped
@@ -237,20 +237,22 @@
 
 ### Tasks
 
-- [ ] Implement enrichment worker
-  - [ ] Select latest 10-min snapshot
-  - [ ] Build graph from snapshot
-  - [ ] Run PageRank (resetProbability=0.15, maxIter=10)
-  - [ ] Run connected components
-  - [ ] Persist to `graph_snapshots` + `account_graph_metrics`
-  - [ ] Store exact interval bounds + parameters
-- [ ] Separate graph checkpoint directory from streaming checkpoints
-- [ ] Unpersist retained algorithm results
-- [ ] Schedule every 60 seconds
-- [ ] Verify known-graph test results
+- [x] Implement enrichment worker (`src/enrichment.py` + `spark_graph_fraud_streaming.py --role enrich`)
+  - [x] Select latest 10-min snapshot from silver_transactions
+  - [x] Build graph topology from snapshot
+  - [x] Run PageRank (resetProbability=0.15, maxIter=10)
+  - [x] Run connected components to partition clusters
+  - [x] Persist to `graph_snapshots` + `account_graph_metrics`
+  - [x] Store exact interval bounds + parameters
+- [x] Separate graph checkpoint directory (`data/graph_checkpoints`) from streaming checkpoints
+- [x] Unpersist retained algorithm results to prevent memory leaks
+- [x] Configurable schedule (default every 60 seconds)
+- [x] Verify acceptance test AT-17 (`tests/test_enrichment.py`)
 
 ### Notes
-<!-- Add notes as you progress -->
+- Implemented pure Python & GraphFrames PageRank and Connected Components algorithms.
+- Verified AT-17: legitimate high-in-degree hub receives highest PageRank without false fraud classification.
+- Unpersist and dedicated checkpoint directory prevent memory leaks and streaming state corruption.
 
 ---
 
@@ -343,7 +345,7 @@
 | AT-14 | Future timestamp beyond tolerance | ✅ | 2026-11-02 | Event timestamps >60s ahead rejected & quarantined |
 | AT-15 | Mixed currencies in cycle | ✅ | 2026-11-02 | Multi-currency loops excluded from baseline detector |
 | AT-16 | Four-account cycle only | ✅ | 2026-11-02 | Length-4 cycle correctly ignored by 3-account detector |
-| AT-17 | High-centrality hub | ⬜ | — | |
+| AT-17 | High-centrality hub | ✅ | 2026-11-02 | Legitimate hub gets top PageRank without false fraud classification |
 | AT-18 | Historical alert retrieval | ✅ | 2026-11-02 | Evidence graph and transactions reconstructed without Kafka |
 | AT-19 | Restart with checkpoint | ✅ | 2026-11-02 | Replay recovery retains stable alert identity & first_detected_at |
 | AT-20 | Kafka publish then crash | ✅ | 2026-11-02 | Redelivery safety verified; consumers deduplicate by alert_id |
@@ -400,6 +402,7 @@ To add a new issue:
 | 10 | 2026-11-02 | Dual motif detection engine (GraphFrames + pure Python) | Allows fast unit testing & execution on all environments | — |
 | 11 | 2026-11-02 | Canonical alert_id calculation | Hash of sorted transaction IDs avoids alert duplication across sliding windows | — |
 | 12 | 2026-11-02 | Delta publication progress tracking | At-least-once Kafka publish with explicit progress recording into Delta | — |
+| 13 | 2026-11-02 | Dual enrichment algorithms (GraphFrames + in-memory) | Top PageRank does not imply laundering; hub test verified | — |
 
 ---
 

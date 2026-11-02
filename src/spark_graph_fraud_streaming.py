@@ -412,8 +412,29 @@ def run_detect(config: Dict[str, Any], spark: "SparkSession"):
     query.awaitTermination()
 
 
+# =============================================================================
+# Enrichment Worker: Periodic PageRank & Connected Components
+# =============================================================================
+
 def run_enrich(config: Dict[str, Any], spark: "SparkSession"):
-    logger.info("[ENRICH] Periodic graph enrichment worker stub (Implemented in Phase 6)")
+    """
+    Periodically computes PageRank and connected components over the latest 10-minute
+    snapshot from silver_transactions (default interval: every 60 seconds).
+    """
+    from enrichment import run_enrichment_cycle
+    import time
+
+    interval = config.get("enrichment", {}).get("interval_seconds", 60)
+    logger.info(f"[ENRICH] Starting periodic graph enrichment loop (interval: {interval}s)")
+
+    try:
+        while True:
+            snapshot_id = run_enrichment_cycle(config, spark)
+            if snapshot_id:
+                logger.info(f"[ENRICH] Completed snapshot cycle: {snapshot_id}")
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        logger.info("[ENRICH] Enrichment loop stopped by user.")
 
 
 # =============================================================================
