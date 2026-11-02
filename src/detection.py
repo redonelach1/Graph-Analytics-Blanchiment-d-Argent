@@ -18,9 +18,14 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from cycle_identities import classify_risk, compute_alert_id, compute_cycle_id
-from temporal_policy import TemporalWindowPolicy
-from validation import parse_iso_timestamp
+try:
+    from src.cycle_identities import classify_risk, compute_alert_id, compute_cycle_id
+    from src.temporal_policy import TemporalWindowPolicy
+    from src.validation import parse_iso_timestamp
+except ImportError:
+    from cycle_identities import classify_risk, compute_alert_id, compute_cycle_id
+    from temporal_policy import TemporalWindowPolicy
+    from validation import parse_iso_timestamp
 
 try:
     from pyspark.sql import DataFrame, SparkSession

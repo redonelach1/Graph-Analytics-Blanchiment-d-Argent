@@ -76,9 +76,16 @@ def compute_payload_hash(payload: Dict[str, Any]) -> str:
     return hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
 
 
-def parse_iso_timestamp(ts_str: str) -> datetime:
-    """Parses ISO-8601 timestamp string and converts to UTC datetime."""
-    if not isinstance(ts_str, str) or not ISO8601_PATTERN.match(ts_str):
+def parse_iso_timestamp(ts_val: Any) -> datetime:
+    """Parses ISO-8601 timestamp string or datetime and converts to UTC datetime."""
+    if isinstance(ts_val, datetime):
+        if ts_val.tzinfo is None:
+            return ts_val.replace(tzinfo=timezone.utc)
+        return ts_val.astimezone(timezone.utc)
+    ts_str = str(ts_val).strip()
+    if " " in ts_str and "T" not in ts_str:
+        ts_str = ts_str.replace(" ", "T")
+    if not ISO8601_PATTERN.match(ts_str):
         raise ValueError(f"Invalid ISO-8601 timestamp format: {ts_str}")
 
     # Normalize trailing Z to +00:00 for datetime.fromisoformat

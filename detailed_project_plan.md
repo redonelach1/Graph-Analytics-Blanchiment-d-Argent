@@ -15,13 +15,14 @@
 3. Computes **PageRank** and **connected components** for account-level risk enrichment
 4. Persists anomaly subgraphs in **Delta Lake** (partitioned by risk level and date)
 5. Publishes alerts to **Kafka** (`fraud-alerts` topic)
-6. Provides a **Streamlit + PyVis** investigation dashboard
+6. Provides a **Next.js + shadcn/ui** premium investigation dashboard (with interactive directed network graph, financial metrics charts, and analyst workbench)
 
-**Four required entry points:**
-- `financial_graph_producer.py` — Synthetic data generator
+**Required entry points & components:**
+- `financial_graph_producer.py` — Synthetic data generator & AMLSim replay
 - `fraud_graph_delta_schema.py` — Delta schema initialization
 - `spark_graph_fraud_streaming.py` — Main streaming pipeline
-- `graph_network_dashboard.py` — Investigation UI
+- `dashboard/` — Next.js + shadcn/ui investigation web application (Port 3000)
+- `graph_network_dashboard.py` — Python Streamlit investigation interface (standalone fallback)
 
 ---
 
@@ -632,63 +633,44 @@ def run_enrichment(spark, config):
 
 ---
 
-### Phase 7: Investigation Dashboard (Days 24–26)
+### Phase 7: Investigation Dashboard — Next.js + shadcn/ui (Days 24–26)
 
-**Objective:** Streamlit + PyVis interactive investigation interface.
+**Objective:** Premium, enterprise-grade anti-money laundering investigation dashboard built with **Next.js 14+ (App Router)**, **shadcn/ui**, **Tailwind CSS**, and interactive directed network graph visualizations.
 
-#### 7.1 Dashboard Views
+#### 7.1 Dashboard Architecture & Views
 
-| View | Elements | Data Source |
-|---|---|---|
-| **Overview** | Alert counts, severity distribution, processing freshness | `fraud_alerts` aggregate |
-| **Alert List** | Filterable table (date, risk, account, rule) | `fraud_alerts` |
-| **Investigation** | Directed cycle graph (PyVis), evidence table | `anomaly_vertices` + `anomaly_edges` |
-| **Account Profile** | Associated alerts, latest metrics (PageRank, component) | `account_graph_metrics` |
-| **Health** | Last batch, lag, errors, retrospective-only count | `processing_progress` |
-
-#### 7.2 PyVis Integration Pattern
-
-```python
-import streamlit as st
-import streamlit.components.v1 as components
-from pyvis.network import Network
-
-def render_alert_graph(alert_id):
-    """Render directed cycle evidence graph for a specific alert."""
-    # Load evidence edges from Delta
-    edges_df = spark.read.format("delta").load(config.anomaly_edges_path)
-    alert_edges = edges_df.filter(col("alert_id") == alert_id).toPandas()
-
-    # Create directed PyVis network
-    net = Network(height="500px", width="100%", directed=True,
-                  bgcolor="#0e1117", font_color="white")
-
-    # Add nodes and edges with transaction details
-    for _, row in alert_edges.iterrows():
-        net.add_node(row["src"], label=row["src"], color="#ff6b6b")
-        net.add_node(row["dst"], label=row["dst"], color="#ff6b6b")
-        net.add_edge(
-            row["src"], row["dst"],
-            title=f"TXN: {row['transaction_id']}\n"
-                  f"Amount: {row['amount']} {row['currency']}\n"
-                  f"Time: {row['event_time']}",
-            label=f"{row['amount']}",
-            color="#ffd93d"
-        )
-
-    # Render in Streamlit
-    net.save_graph("graph.html")
-    with open("graph.html", "r") as f:
-        components.html(f.read(), height=520)
+```text
+Next.js Frontend (Port 3000)
+  ├── Overview (KPI Metrics, Risk Distribution, Live Alert Stream)
+  ├── Fraud Alerts (Filterable Table with severity badges, sort, date range, search)
+  ├── Investigation Workbench (Interactive directed cycle graph with glowing risk edges, account dossier)
+  ├── Account Centrality (PageRank ranking, connected component clusters)
+  └── Pipeline Health & Telemetry (Delta table row counts, processing status, Kafka lag)
 ```
+
+| View | Key Elements | Data Source |
+|---|---|---|
+| **Executive Overview** | KPI metric cards (Active alerts, high-risk amount, monitored accounts), severity pie chart, recent alert feed | `fraud_alerts` aggregates |
+| **Alerts Explorer** | Data table with filters (Risk level, currency, account ID, date range), column sorting, instant search | `fraud_alerts` |
+| **Investigation Workbench** | Interactive directed graph canvas (zoom, pan, node drag, glowing fraud cycles, edge transaction tooltips), step-by-step transaction timeline, account inspection drawer | `fraud_alerts` + `anomaly_edges` |
+| **Account Centrality** | PageRank leaderboard, connected components grouping, search by account | `account_graph_metrics` |
+| **Pipeline Health** | Real-time ingest/accept/detect timestamps, table statistics, storage footprint | `processing_progress` + Delta logs |
+
+#### 7.2 Technology Stack — Frontend
+
+- **Framework:** Next.js 14+ with React 18/19 & TypeScript
+- **Styling & Components:** Tailwind CSS + **shadcn/ui** (Card, Badge, Button, Table, Tabs, Dialog, Tooltip, Select)
+- **Icons:** `lucide-react`
+- **Charts:** `recharts` for financial distribution and volume trends
+- **Graph Canvas:** Interactive SVG / HTML5 Force-directed Graph Canvas with arrowheads, particle animation on fraud edges, and hover tooltips
+- **API Integration:** Next.js Route Handlers (`/api/alerts`, `/api/alerts/[id]`, `/api/metrics`, `/api/health`) querying Delta Lake data
 
 #### 7.3 Performance Guardrails
 
-- **Bound neighborhood expansion:** Max 300 nodes / 1,000 edges
-- **Streamlit caching:** Use `@st.cache_data(ttl=60)` for Delta reads
-- **Show data freshness:** Display when cached data and metrics were computed
-- **Escape untrusted labels/HTML** in graph rendering
-- **Never invoke global PageRank** during page rendering
+- **Bound neighborhood expansion:** Max 300 nodes / 1,000 edges per investigation view
+- **Client-side memoization:** React `useMemo` for graph layout calculation
+- **Data freshness indicator:** Visual pulse badge showing timestamp of last ingestion snapshot
+- **Sanitized text rendering:** Protection against injection in account or transaction labels
 
 **References:**
 - [PyVis Documentation](https://pyvis.readthedocs.io/en/latest/documentation.html)

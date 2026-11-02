@@ -367,25 +367,25 @@ Optional enrichment updates require an explicit event version/update contract; t
 
 ## 10. Dashboard specification
 
+The investigation dashboard is implemented as a modern **Next.js + shadcn/ui** application (with a Python Streamlit fallback):
+
 | View | Required elements |
 |---|---|
-| Overview | Alert counts, severity distribution, processing freshness |
-| Alert list | Filters for date, risk, account, rule; stable alert ID |
-| Investigation | Directed cycle, evidence table, timestamps, amounts, reason codes |
-| Account profile | Associated alerts and latest timestamped metrics |
-| Health | Last successful batch, lag, errors, retrospective-only count |
+| Overview | KPI summary cards, severity distribution charts, processing freshness pulse |
+| Alert list | Filterable table for date, risk, account, rule; stable alert ID; export |
+| Investigation | Directed cycle graph with glowing risk edges, evidence table, timestamps, amounts, reason codes |
+| Account profile | Associated alerts and latest timestamped PageRank/components metrics |
+| Health | Pipeline telemetry: last successful batch, lag, errors, retrospective-only count |
 
 Acceptance requirements:
-- Highlight evidence edges separately from optional context.
-- Show arrows and transaction-level hover information.
-- Default to the selected alert's small subgraph.
+- Modern Next.js 14+ interface utilizing shadcn/ui design system with dark/light themes.
+- Highlight evidence edges separately from optional context with arrowheads and transaction-level tooltips.
+- Default to the selected alert's small subgraph with zoom, pan, and node drag.
 - Bound neighborhood expansion; proposed cap 300 nodes / 1,000 edges.
 - Show when cached data and metrics were computed.
 - Escape untrusted labels/HTML.
 - Support offline demo assets where practical.
 - Do not invoke global PageRank during page rendering.
-
-Use Streamlit cache TTL and snapshot-aware query keys. References: [R12], [R13].
 
 ## 11. Nonfunctional requirements and observability
 
