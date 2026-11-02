@@ -1,0 +1,37 @@
+{
+  "description": "Self loop A -> A and 2-account cycle A -> B -> A -> 0 triangle alerts",
+  "expected_alerts": 0,
+  "transactions": [
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-SLP-001",
+      "source_account": "ACC-ALICE",
+      "target_account": "ACC-ALICE",
+      "montant": 10000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-SLP-002",
+      "source_account": "ACC-ALICE",
+      "target_account": "ACC-BOB",
+      "montant": 20000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:01:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-SLP-003",
+      "source_account": "ACC-BOB",
+      "target_account": "ACC-ALICE",
+      "montant": 20000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:02:00Z"
+    }
+  ]
+}
+

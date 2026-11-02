@@ -1,0 +1,37 @@
+{
+  "description": "3 distinct accounts, 3 distinct transactions, within 10-minute window -> exactly 1 alert",
+  "expected_alerts": 1,
+  "transactions": [
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-TRI-001",
+      "source_account": "ACC-ALICE",
+      "target_account": "ACC-BOB",
+      "montant": 50000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-TRI-002",
+      "source_account": "ACC-BOB",
+      "target_account": "ACC-CHARLIE",
+      "montant": 48000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:03:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-TRI-003",
+      "source_account": "ACC-CHARLIE",
+      "target_account": "ACC-ALICE",
+      "montant": 45000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:05:00Z"
+    }
+  ]
+}
+

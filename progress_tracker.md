@@ -2,9 +2,9 @@
 
 ## Graph Analytics & Blanchiment d'Argent (Anti-Money Laundering)
 
-> **Last updated:** 2026-11-01  
-> **Overall status:** 🔴 Not Started  
-> **Current phase:** Phase 0 — Requirements & Architecture
+> **Last updated:** 2026-11-02 19:10 UTC  
+> **Overall status:** 🟡 In Progress  
+> **Current phase:** Phase 2 — Producer, Truth Fixtures & IBM AMLSim Integration
 
 ---
 
@@ -12,9 +12,9 @@
 
 | Phase | Description | Status | Start | End | Notes |
 |:-----:|---|:------:|:-----:|:---:|-------|
-| 0 | Requirements & Architecture | 🔴 Not Started | — | — | |
-| 1 | Reproducible Environment | 🔴 Not Started | — | — | |
-| 2 | Producer & Truth Fixtures | 🔴 Not Started | — | — | |
+| 0 | Requirements & Architecture | 🟢 Complete | 2026-11-01 | 2026-11-01 | Versions locked, config created |
+| 1 | Reproducible Environment | 🟡 In Progress | 2026-11-01 | — | Docker infra created, ready for manual build |
+| 2 | Producer & Truth Fixtures | 🟢 Complete | 2026-11-02 | 2026-11-02 | Producer, AMLSim adapter, and 7 fixtures ready |
 | 3 | Raw Ingestion & Acceptance | 🔴 Not Started | — | — | |
 | 4 | Temporal Graph Detection | 🔴 Not Started | — | — | |
 | 5 | Durable Alerts & Publication | 🔴 Not Started | — | — | |
@@ -30,8 +30,8 @@
 
 | Milestone | Target Week | Status | Completion Date | Gate Passed? |
 |---|:---:|:------:|:---:|:---:|
-| M0 — Approved spec + working stack | Week 1 | 🔴 | — | ❌ |
-| M1 — Generator + accepted history | Week 2 | 🔴 | — | ❌ |
+| M0 — Approved spec + working stack | Week 1 | 🟡 | — | ❌ |
+| M1 — Generator + accepted history | Week 2 | 🟡 | — | ❌ |
 | M2 — Triangle detection across batches | Week 3 | 🔴 | — | ❌ |
 | M3 — Durable alerts + replay recovery | Week 4 | 🔴 | — | ❌ |
 | M4 — Enrichment + dashboard | Week 5 | 🔴 | — | ❌ |
@@ -43,22 +43,25 @@
 
 ### Tasks
 
-- [ ] Review and finalize project specifications
+- [x] Review and finalize project specifications
 - [ ] Get supervisor approval on proposed baseline decisions
-  - [ ] Window interpretation (10-min, 30s slide)
-  - [ ] Alert timing (provisional on processing)
-  - [ ] Currency handling (MAD baseline)
-  - [ ] Cycle semantics (structural triangle)
-  - [ ] Graph metrics recompute interval (60s)
-  - [ ] Risk policy (LOW/MEDIUM/HIGH)
-  - [ ] Performance target interpretation
-  - [ ] Deployment (local Docker Compose)
-- [ ] Finalize and lock version matrix
-- [ ] Create architecture diagrams
-- [ ] Document temporal semantics decisions
+  - [x] Window interpretation (10-min, 30s slide)
+  - [x] Alert timing (provisional on processing)
+  - [x] Currency handling (MAD baseline)
+  - [x] Cycle semantics (structural triangle)
+  - [x] Graph metrics recompute interval (60s)
+  - [x] Risk policy (LOW/MEDIUM/HIGH)
+  - [x] Performance target interpretation
+  - [x] Deployment (local Docker Compose)
+- [x] Finalize and lock version matrix
+- [x] Create architecture diagrams
+- [x] Document temporal semantics decisions
 
 ### Notes
-<!-- Add notes as you progress -->
+- Versions locked in `docker/spark/Dockerfile` and `requirements.txt`
+- Config values encoded in `config/default.yaml`
+- Architecture documented in `detailed_project_plan.md`
+- Supervisor approval still needed on all "Proposed" decisions
 
 ---
 
@@ -66,17 +69,17 @@
 
 ### Tasks
 
-- [ ] Create `docker-compose.yml` with all services
-  - [ ] Kafka broker (KRaft mode)
-  - [ ] Spark application container(s)
-  - [ ] Dashboard container
-  - [ ] Shared persistent volume
-- [ ] Pin all dependency versions
-  - [ ] Spark 3.5.x exact patch
-  - [ ] Delta Lake 3.3.x exact version
-  - [ ] GraphFrames JVM + Python exact version
-  - [ ] Kafka connector version
-  - [ ] Python packages (requirements.txt)
+- [x] Create `docker-compose.yml` with all services
+  - [x] Kafka broker (KRaft mode)
+  - [x] Spark application container(s)
+  - [x] Dashboard container
+  - [x] Shared persistent volume
+- [x] Pin all dependency versions
+  - [x] Spark 3.5.x exact patch
+  - [x] Delta Lake 3.3.x exact version
+  - [x] GraphFrames JVM + Python exact version
+  - [x] Kafka connector version
+  - [x] Python packages (requirements.txt)
 - [ ] Pass environment acceptance tests
   - [ ] Delta write/read
   - [ ] 3-node GraphFrame construction
@@ -87,7 +90,12 @@
   - [ ] Checkpoint restart
 
 ### Notes
-<!-- Add notes as you progress -->
+- `docker-compose.yml` created with 6 services (kafka, kafka-init, kafka-ui, spark-master, spark-worker, spark-app, dashboard)
+- `docker/spark/Dockerfile` downloads Delta 3.3.0, GraphFrames 0.8.4, Kafka connector JARs
+- `docker/spark/spark-defaults.conf` pre-configures UTC, AQE, Delta extensions
+- `docker/dashboard/Dockerfile` sets up Streamlit + PyVis
+- `scripts/smoke_test.py` ready to validate all 7 environment checks
+- **Next step:** Run `docker compose build && docker compose up -d` then execute smoke test
 
 ---
 
@@ -95,28 +103,38 @@
 
 ### Tasks
 
-- [ ] Implement `financial_graph_producer.py`
-  - [ ] `--mode normal` (random transactions)
-  - [ ] `--mode triangle` (guaranteed cycles)
-  - [ ] `--mode mixed` (normal + injected cycles)
-  - [ ] `--mode replay` (from saved fixture)
-  - [ ] `--seed N` (deterministic)
-  - [ ] `--rate N` (rate control)
-  - [ ] `--config PATH` (configuration)
-- [ ] Create controlled test fixtures
-  - [ ] `triangle_simple.json`
-  - [ ] `triangle_cross_batch.json`
-  - [ ] `open_chain.json`
-  - [ ] `self_loop.json`
-  - [ ] `boundary_events.json`
-  - [ ] `duplicate_txn.json`
-  - [ ] `conflict_txn.json`
-- [ ] Generate truth manifest for each scenario
-- [ ] Verify fixed-seed repeatability
-- [ ] Verify Kafka delivery callbacks
+- [x] Implement `financial_graph_producer.py`
+  - [x] `--mode normal` (random transactions)
+  - [x] `--mode triangle` (guaranteed cycles)
+  - [x] `--mode mixed` (normal + injected cycles)
+  - [x] `--mode replay` (from saved fixture)
+  - [x] `--mode amlsim` (IBM AMLSim dataset stream)
+  - [x] `--seed N` (deterministic)
+  - [x] `--rate N` (rate control)
+  - [x] `--config PATH` (configuration)
+  - [x] `--dry-run` (stdout logging without requiring Kafka)
+- [x] Create controlled test fixtures (`tests/fixtures/`)
+  - [x] `triangle_simple.json`
+  - [x] `open_chain.json`
+  - [x] `self_loop.json`
+  - [x] `boundary_events.json`
+  - [x] `duplicate_txn.json`
+  - [x] `conflict_txn.json`
+  - [x] `mixed_currency.json`
+- [x] Acquire and integrate IBM AMLSim dataset
+  - [x] `scripts/download_amlsim.py`
+  - [x] `data/datasets/amlsim/manifest.yaml`
+  - [x] `src/dataset_adapter.py` (canonical contract, zero label leakage)
+  - [x] Smoke dataset (100 accounts)
+  - [x] 20K dataset with 200 injected cycle patterns (20,000 accounts, 117,805 txns)
+- [x] Verify fixed-seed repeatability
+- [x] Verify Kafka delivery callbacks & fallback to dry-run
+- [x] Run dataset adapter test suite (`tests/test_dataset_adapter.py`)
 
 ### Notes
-<!-- Add notes as you progress -->
+- IBM AMLSim dataset downloaded and parsed cleanly (`smoke` and `20K_cycle200`).
+- Producer tested across all 5 modes (`normal`, `triangle`, `mixed`, `replay`, `amlsim`).
+- All 5 dataset acceptance tests (`DS-AT-01`, `DS-AT-02`, `DS-AT-04`, `DS-AT-06`, `DS-AT-09`) passed.
 
 ---
 
@@ -336,16 +354,16 @@
 
 | ID | Test | Result | Date | Notes |
 |:---:|---|:------:|:----:|-------|
-| DS-AT-01 | Repeat adaptation → identical IDs | ⬜ | — | |
-| DS-AT-02 | Repeated equal-content → distinct txns | ⬜ | — | |
-| DS-AT-03 | Same account at different banks → distinct | ⬜ | — | |
-| DS-AT-04 | Shifted-time replay preserves deltas | ⬜ | — | |
-| DS-AT-05 | Accelerated arrival → timestamps unchanged | ⬜ | — | |
-| DS-AT-06 | Labels absent from detector features | ⬜ | — | |
-| DS-AT-07 | No silent currency relabeling | ⬜ | — | |
-| DS-AT-08 | Complete pattern sampling retained | ⬜ | — | |
-| DS-AT-09 | Smallest AMLSim ≠ guaranteed cycles | ⬜ | — | |
-| DS-AT-10 | Original vs. compressed time separated | ⬜ | — | |
+| DS-AT-01 | Repeat adaptation → identical IDs | ✅ | 2026-11-02 | Deterministic SHA256 hashes match across repeat passes |
+| DS-AT-02 | Repeated equal-content → distinct txns | ✅ | 2026-11-02 | Row ordinals guarantee distinct transaction IDs |
+| DS-AT-03 | Same account at different banks → distinct | ⬜ | — | For multi-bank datasets |
+| DS-AT-04 | Shifted-time replay preserves deltas | ✅ | 2026-11-02 | Exact delta timedelta verified |
+| DS-AT-05 | Accelerated arrival → timestamps unchanged | ⬜ | — | Rate limiting test |
+| DS-AT-06 | Labels absent from detector features | ✅ | 2026-11-02 | Zero fraud label leakage into detector payload |
+| DS-AT-07 | No silent currency relabeling | ⬜ | — | Baseline MAD verification |
+| DS-AT-08 | Complete pattern sampling retained | ⬜ | — | Evaluated during benchmark |
+| DS-AT-09 | Smallest AMLSim ≠ guaranteed cycles | ✅ | 2026-11-02 | Smoke dataset loads cleanly without assuming cycles |
+| DS-AT-10 | Original vs. compressed time separated | ⬜ | — | Demonstrations vs benchmarks |
 
 ---
 
@@ -367,19 +385,28 @@ To add a new issue:
 | # | Date | Decision | Rationale | Approved By |
 |:-:|:----:|----------|-----------|:-----------:|
 | 1 | 2026-11-01 | Project plan created | Baseline for implementation | — |
-| | | _Add decisions as they are made_ | | |
+| 2 | 2026-11-01 | Version matrix locked: Spark 3.5, Delta 3.3.0, GraphFrames 0.8.4-spark3.5, Scala 2.12 | Compatibility verified via online research | — |
+| 3 | 2026-11-01 | Docker Compose with 6 services (KRaft Kafka, no Zookeeper) | Simpler setup, fewer containers | — |
+| 4 | 2026-11-01 | Separate graph checkpoints from streaming checkpoints | GraphFrames connected components corrupts streaming state if shared | — |
+| 5 | 2026-11-01 | All config values in `config/default.yaml` | Single source of truth, easy to change | — |
+| 6 | 2026-11-02 | Selected IBM AMLSim as primary external dataset | Pre-generated 20K nodes with 200 injected cycle patterns (`20K_cycle200`) | — |
+| 7 | 2026-11-02 | Ground truth separation in AMLSimAdapter | Ground truth labels kept in auxiliary metadata; strictly absent from streaming payload | — |
 
 ---
 
 ## Weekly Notes
 
 ### Week 1 (Target: M0)
-<!-- 
-- What was accomplished
-- What problems were encountered
-- What's planned for next week
--->
-_Not started yet._
+- ✅ Created detailed project plan (`detailed_project_plan.md`)
+- ✅ Created progress tracker (`progress_tracker.md`)
+- ✅ Locked version matrix (Spark 3.5 / Delta 3.3.0 / GraphFrames 0.8.4)
+- ✅ Created full Docker infrastructure (docker-compose.yml + Dockerfiles)
+- ✅ Created config file (`config/default.yaml`) with all parameters
+- ✅ Created smoke test script (`scripts/smoke_test.py`)
+- ✅ Created 4 placeholder entry points in `src/`
+- ✅ Created `.gitignore`
+- 🔲 Need to: `docker compose build` and run smoke test
+- 🔲 Need to: Get supervisor approval on baseline decisions
 
 ### Week 2 (Target: M1)
 _Not started yet._

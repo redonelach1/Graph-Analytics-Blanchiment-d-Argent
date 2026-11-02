@@ -1,0 +1,37 @@
+{
+  "description": "Triangle where 3rd edge is outside the 10-minute window (event at 10:11:00Z vs 10:00:00Z) -> 0 alerts",
+  "expected_alerts": 0,
+  "transactions": [
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-BND-001",
+      "source_account": "ACC-ALICE",
+      "target_account": "ACC-BOB",
+      "montant": 50000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-BND-002",
+      "source_account": "ACC-BOB",
+      "target_account": "ACC-CHARLIE",
+      "montant": 48000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:05:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-BND-003",
+      "source_account": "ACC-CHARLIE",
+      "target_account": "ACC-ALICE",
+      "montant": 45000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:11:00Z"
+    }
+  ]
+}
+

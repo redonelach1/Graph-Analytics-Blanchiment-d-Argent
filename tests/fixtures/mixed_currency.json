@@ -1,0 +1,37 @@
+{
+  "description": "3-account cycle with mixed currencies (MAD, USD, EUR) -> excluded from baseline MAD detector -> 0 alerts",
+  "expected_alerts": 0,
+  "transactions": [
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-CUR-001",
+      "source_account": "ACC-ALICE",
+      "target_account": "ACC-BOB",
+      "montant": 50000.0,
+      "devise": "MAD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:00:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-CUR-002",
+      "source_account": "ACC-BOB",
+      "target_account": "ACC-CHARLIE",
+      "montant": 5000.0,
+      "devise": "USD",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:03:00Z"
+    },
+    {
+      "schema_version": 1,
+      "transaction_id": "TXN-FIX-CUR-003",
+      "source_account": "ACC-CHARLIE",
+      "target_account": "ACC-ALICE",
+      "montant": 4500.0,
+      "devise": "EUR",
+      "type_operation": "VIREMENT_COMMERCIAL",
+      "timestamp": "2026-10-07T10:05:00Z"
+    }
+  ]
+}
+
