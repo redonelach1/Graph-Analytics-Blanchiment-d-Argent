@@ -33,7 +33,7 @@ services:
   # Apache Kafka — KRaft mode (no Zookeeper required)
   # ---------------------------------------------------------------------------
   kafka:
-    image: bitnami/kafka:3.5
+    image: bitnamilegacy/kafka:3.5.1-debian-11-r1
     container_name: aml-kafka
     hostname: kafka
     networks:
@@ -72,7 +72,7 @@ services:
   # Kafka Init — Create required topics on startup
   # ---------------------------------------------------------------------------
   kafka-init:
-    image: bitnami/kafka:3.5
+    image: bitnamilegacy/kafka:3.5.1-debian-11-r1
     container_name: aml-kafka-init
     networks:
       - aml-network
@@ -113,7 +113,7 @@ services:
   # Spark Master
   # ---------------------------------------------------------------------------
   spark-master:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5.1
     container_name: aml-spark-master
     hostname: spark-master
     networks:
@@ -140,7 +140,7 @@ services:
   # Spark Worker
   # ---------------------------------------------------------------------------
   spark-worker:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5.1
     container_name: aml-spark-worker
     hostname: spark-worker
     networks:

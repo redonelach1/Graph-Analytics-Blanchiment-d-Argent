@@ -9,6 +9,9 @@
 
 An enterprise-grade, real-time Anti-Money Laundering (AML) streaming platform designed to detect complex cyclic fund-layering rings ($A \to B \to C \to A$) across continuous sliding windows with deterministic idempotency, sub-minute alerting, and zero label leakage.
 
+> 📖 **Looking for a full step-by-step walkthrough?**  
+> Check out the [**Complete User Guide & Walkthrough (WALKTHROUGH.md)**](WALKTHROUGH.md) for detailed container instructions, local dev steps, UI features, live test scenarios, and benchmark runs.
+
 ---
 
 ## 🏛️ System Architecture
@@ -158,6 +161,7 @@ See full report: [`docs/benchmark_report.md`](docs/benchmark_report.md).
 ---
 
 ## 📚 Technical Documentation
+- [Complete Walkthrough & User Guide](WALKTHROUGH.md)
 - [Operational Runbook & Recovery Guide](docs/runbook.md)
 - [Architectural Constraints & Limitations](docs/limitations.md)
 - [Acceptance Benchmark Report](docs/benchmark_report.md)
