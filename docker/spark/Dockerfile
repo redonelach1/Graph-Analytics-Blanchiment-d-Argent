@@ -26,11 +26,6 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # ---------------------------------------------------------------------------
 ENV SPARK_JARS_DIR=/opt/bitnami/spark/jars
 
-# Delta Lake 3.3.0 for Spark 3.5
-RUN curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.3.0/delta-spark_2.12-3.3.0.jar" \
-    -o ${SPARK_JARS_DIR}/delta-spark_2.12-3.3.0.jar && \
-    curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-storage/3.3.0/delta-storage-3.3.0.jar" \
-    -o ${SPARK_JARS_DIR}/delta-storage-3.3.0.jar
 # Delta Lake 3.2.0 for Spark 3.5
 RUN curl -fSL "https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.2.0/delta-spark_2.12-3.2.0.jar" \
     -o ${SPARK_JARS_DIR}/delta-spark_2.12-3.2.0.jar && \
