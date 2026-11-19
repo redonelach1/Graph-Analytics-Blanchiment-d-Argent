@@ -247,5 +247,31 @@ services:
       - delta-data:/opt/app/data/delta:ro
     depends_on:
       - spark-master
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Streamlit Dashboard — PyVis Interactive Investigation UI (Livrable 4)
+  # ---------------------------------------------------------------------------
+  streamlit-dashboard:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    container_name: aml-streamlit-dashboard
+    hostname: streamlit-dashboard
+    networks:
+      - aml-network
+    ports:
+      - "8501:8501"   # Streamlit + PyVis Investigation UI
+    environment:
+      - APP_CONFIG_PATH=/opt/app/config/default.yaml
+      - DELTA_BASE_PATH=/opt/app/data/delta
+    volumes:
+      - ./src:/opt/app/src:ro
+      - ./config:/opt/app/config:ro
+      - delta-data:/opt/app/data/delta:ro
+    command: ["streamlit", "run", "src/graph_network_dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    depends_on:
+      - spark-app
+    restart: unless-stopped
 
 

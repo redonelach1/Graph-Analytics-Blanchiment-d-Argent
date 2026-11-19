@@ -6,12 +6,14 @@ This document describes standard operating procedures, incident handling, disast
 
 ## 1. System Components & Service Ports
 
-| Service | Port | Description | Health Endpoint |
+| Service | Port | Description | Health / Web Access |
 |:--------|:----:|:------------|:----------------|
-| **Next.js Dashboard** | `3000` | Analyst workbench & investigation GUI | `GET http://localhost:3000/api/health` |
-| **Spark Master** | `7077` | RPC cluster master | `http://localhost:8080` (Web UI) |
-| **Kafka Broker** | `9092` | KRaft event broker (external client port) | Internal broker heartbeat |
-| **Kafka UI** | `8085` | Topic, consumer group, and offset inspector | `http://localhost:8085` |
+| **Next.js Dashboard** | `3000` | Analyst workbench & investigation GUI | `http://localhost:3000` (`/api/health`) |
+| **Streamlit Dashboard** | `8501` | PyVis interactive graph console (Livrable 4) | `http://localhost:8501` |
+| **Spark Master UI** | `8080` | Spark Cluster Master Web UI | `http://localhost:8080` |
+| **Spark App UI** | `4040` | Live Spark Streaming DAG & micro-batch UI | `http://localhost:4040` |
+| **Kafka Broker** | `9092` | KRaft event broker (external client port) | TCP `localhost:9092` |
+| **Kafka UI** | `8090` | Topic, consumer group, and offset inspector | `http://localhost:8090` |
 
 ---
 

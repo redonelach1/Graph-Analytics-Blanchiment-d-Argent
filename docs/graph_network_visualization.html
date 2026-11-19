@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body { margin: 0; background: #0f172a; font-family: sans-serif; }
+        #network { width: 100%; height: 460px; }
+    </style>
+</head>
+<body>
+    <div id="network"></div>
+    <script type="text/javascript">
+        var nodes = new vis.DataSet([{"id": "ACC-0081", "label": "ACC-0081", "shape": "dot", "size": 24, "color": {"background": "#0284c7", "border": "#38bdf8"}}, {"id": "ACC-0014", "label": "ACC-0014", "shape": "dot", "size": 24, "color": {"background": "#0284c7", "border": "#38bdf8"}}, {"id": "ACC-0003", "label": "ACC-0003", "shape": "dot", "size": 24, "color": {"background": "#0284c7", "border": "#38bdf8"}}]);
+        var edges = new vis.DataSet([{"from": "ACC-0081", "to": "ACC-0014", "label": "161,233 MAD", "arrows": "to", "color": "#e11d48", "font": {"color": "#fda4af", "size": 11}}, {"from": "ACC-0014", "to": "ACC-0003", "label": "154,750 MAD", "arrows": "to", "color": "#e11d48", "font": {"color": "#fda4af", "size": 11}}, {"from": "ACC-0003", "to": "ACC-0081", "label": "147,877 MAD", "arrows": "to", "color": "#e11d48", "font": {"color": "#fda4af", "size": 11}}]);
+        var container = document.getElementById('network');
+        var data = { nodes: nodes, edges: edges };
+        var options = {
+            physics: { barnesHut: { springLength: 140, gravity: -2500 } },
+            nodes: { font: { color: '#f8fafc' } },
+            edges: { font: { align: 'top' } }
+        };
+        new vis.Network(container, data, options);
+    </script>
+</body>
+</html>
