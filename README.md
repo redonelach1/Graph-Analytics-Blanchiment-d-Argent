@@ -11,6 +11,11 @@ An enterprise-grade, real-time Anti-Money Laundering (AML) streaming platform de
 
 > 📖 **Looking for a full step-by-step walkthrough?**  
 > Check out the [**Complete User Guide & Walkthrough (WALKTHROUGH.md)**](WALKTHROUGH.md) for detailed container instructions, local dev steps, UI features, live test scenarios, and benchmark runs.
+>
+> 🎓 **Academic Project Report (LaTeX & Markdown):**
+> - **Full Modular LaTeX Project:** [`report/`](report/) (Includes `main.tex`, 7 chapters, BibTeX references, appendices, and 15 figure/screenshot placeholders in `report/figures/`).
+> - **Compilation Guide:** [`report/README.md`](report/README.md) (Local `pdflatex` or direct Overleaf import).
+> - **Markdown Master Report:** [`RAPPORT_DE_PROJET_AML_GRAPH_ANALYTICS.md`](RAPPORT_DE_PROJET_AML_GRAPH_ANALYTICS.md).
 
 ---
 
@@ -160,7 +165,8 @@ See full report: [`docs/benchmark_report.md`](docs/benchmark_report.md).
 
 ---
 
-## 📚 Technical Documentation
+## 📚 Technical Documentation & Academic Report
+- [🎓 Rapport de Projet Académique (Master / Ingénieur S5)](RAPPORT_DE_PROJET_AML_GRAPH_ANALYTICS.md)
 - [Complete Walkthrough & User Guide](WALKTHROUGH.md)
 - [Operational Runbook & Recovery Guide](docs/runbook.md)
 - [Architectural Constraints & Limitations](docs/limitations.md)
