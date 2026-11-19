@@ -1,0 +1,54 @@
+% ==============================================================================
+% PAGE 2 : SOMMAIRE EXÉCUTIF, RÉSUMÉ BILINGUE & ACRONYMES CLÉS
+% ==============================================================================
+
+\thispagestyle{plain}
+
+% ------------------------------------------------------------------------------
+% Sommaire Exécutif Compact
+% ------------------------------------------------------------------------------
+\begin{center}
+    {\normalsize\bfseries\color{primaryNavy} SOMMAIRE EXÉCUTIF}
+\end{center}
+\vspace{-0.15cm}
+\noindent\rule{\textwidth}{0.8pt}
+\vspace{0.15cm}
+
+\footnotesize
+\noindent
+\begin{tabularx}{\textwidth}{p{0.48\textwidth} p{0.48\textwidth}}
+\textbf{1. Introduction et Contexte du Projet} \dotfill \textbf{p.~3} & \textbf{5. Tableau de Bord d'Investigation} \dotfill \textbf{p.~7} \\
+\textbf{2. Choix Technologiques \& Fondements} \dotfill \textbf{p.~4} & \textbf{6. Tests, Validation et Benchmarks} \dotfill \textbf{p.~8} \\
+\textbf{3. Architecture Système \& Données} \dotfill \textbf{p.~5} & \textbf{7. Conclusion Générale \& Perspectives} \dotfill \textbf{p.~9} \\
+\textbf{4. Pipeline Streaming \& Détection} \dotfill \textbf{p.~6} & \textbf{8. Annexes Techniques \& Bibliographie} \dotfill \textbf{p.~10} \\
+\end{tabularx}
+
+\vspace{0.25cm}
+\noindent\rule{\textwidth}{0.8pt}
+\vspace{0.2cm}
+
+% ------------------------------------------------------------------------------
+% Résumé et Abstract Bilingue
+% ------------------------------------------------------------------------------
+\noindent\textbf{\color{primaryNavy}Résumé (Français) ---} Ce projet conçoit et implémente une plateforme Big Data distribuée de détection en temps réel des réseaux de blanchiment d'argent par analyse de graphes. En associant \textbf{Apache Kafka} (mode KRaft), \textbf{Apache Spark Structured Streaming} (fenêtres glissantes de $10\text{ min}$, filigrane de $120\text{ s}$), \textbf{GraphFrames} (extraction de motifs de cycles fermés $A \to B \to C \to A$) et \textbf{Delta Lake} (persistance ACID dédupliquée par hachage canonique SHA-256 insensible aux rotations), le système élimine $100\,\%$ des faux positifs commerciaux grâce à un calcul continu de \textbf{PageRank}. Un cockpit forensic développé en \textbf{Next.js 14} offre un rendu vectoriel interactif et l'export réglementaire SAR JSON. Validée sur 22 tests d'acceptation et sur le benchmark IBM AMLSim ($20\,000$ comptes, $200$ cycles injectés), la solution maintient une latence P95 de $18.95\text{ ms}$ sous une charge de $500\text{ TPS}$.
+
+\vspace{0.25cm}
+\noindent\textbf{\color{primaryNavy}Abstract (English) ---} This work presents an end-to-end distributed streaming Lakehouse platform for real-time Anti-Money Laundering (AML) graph analytics. Combining \textbf{Apache Kafka}, \textbf{Apache Spark Structured Streaming} ($10$-min sliding windows, $120$-s watermark), \textbf{GraphFrames} (closed triangle mining $A \to B \to C \to A$), and ACID \textbf{Delta Lake} storage with rotation-invariant SHA-256 canonical hashing, the system discriminates high-degree legitimate merchant hubs via continuous \textbf{PageRank}. A \textbf{Next.js 14} forensic dashboard delivers vector topology visualization and automated GAFI/UTRF compliant SAR JSON exports. Evaluated on 22 acceptance tests and IBM AMLSim ($20,000$ accounts, 200 cycles), the pipeline achieves a sub-second P95 latency of $18.95\text{ ms}$ at $500\text{ TPS}$.
+
+\vspace{0.25cm}
+\noindent\rule{\textwidth}{0.8pt}
+\vspace{0.2cm}
+
+% ------------------------------------------------------------------------------
+% Principaux Acronymes et Abréviations
+% ------------------------------------------------------------------------------
+\noindent\textbf{\color{primaryNavy}Acronymes et Abréviations Principales :}\\[0.15cm]
+\footnotesize
+\begin{tabularx}{\textwidth}{l X l X}
+\toprule
+\textbf{AML} & \textit{Anti-Money Laundering} (Lutte anti-blanchiment) & \textbf{ACID} & \textit{Atomicity, Consistency, Isolation, Durability} \\
+\textbf{FSM} & \textit{Finite State Machine} (Validation déterministe) & \textbf{SAR} & \textit{Suspicious Activity Report} (Déclaration de soupçon) \\
+\textbf{KRaft} & \textit{Kafka Raft} (Consensus distribué sans ZooKeeper) & \textbf{DAG} & \textit{Directed Acyclic Graph} (Graphe d'exécution Spark) \\
+\textbf{TPS} & \textit{Transactions Per Second} (Débit transactionnel) & \textbf{UTRF} & Unité de Traitement du Renseignement Financier \\
+\bottomrule
+\end{tabularx}

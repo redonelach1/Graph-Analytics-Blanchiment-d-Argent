@@ -14,12 +14,7 @@ Le blanchiment d'argent consiste à injecter des capitaux d'origine illicite dan
     \item \textbf{L'Intégration :} Récupération des fonds apparemment régularisés pour investir dans l'économie légale.
 \end{enumerate}
 
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.92\linewidth]{figures/fig_placement_layering_integration.png}
-    \caption{Les trois phases cardinales du blanchiment d'argent : Placement, Empilement (\textit{Layering}) et Intégration}
-    \label{fig:aml_three_stages}
-\end{figure}
+\singlefigure[3.4cm]{figures/fig_placement_layering_integration.png}{Les trois phases cardinales du blanchiment d'argent : Placement, Empilement (\textit{Layering}) et Intégration}{fig:aml_three_stages}
 
 Notre projet se focalise sur l'étape critique de l'\textbf{empilement}, et plus particulièrement sur la détection des **boucles circulaires fermées** (\textit{circular transaction loops}) où les fonds circulent selon un cycle orienté $A \to B \to C \to A$ dans un intervalle de temps court (moins de 2 heures) avec une déperdition minimale (commissions des complices inférieures à $15\,\%$).
 
@@ -54,3 +49,5 @@ Le Chapitre~\ref{ch:streaming} expose l'implémentation du pipeline de streaming
 Le Chapitre~\ref{ch:dashboard} présente le tableau de bord d'investigation médico-légale développé en Next.js.
 Le Chapitre~\ref{ch:experiments} détaille la validation sur le jeu de données IBM AMLSim, la matrice des 22 tests d'acceptation et les benchmarks de charge.
 Enfin, le Chapitre~\ref{ch:conclusion} conclut le mémoire et présente les perspectives d'évolution.
+
+\newpage

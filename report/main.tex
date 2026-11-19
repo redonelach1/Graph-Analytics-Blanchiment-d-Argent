@@ -1,6 +1,6 @@
 % ==============================================================================
 % RAPPORT DE PROJET ACADÉMIQUE : DÉTECTION EN TEMPS RÉEL DU BLANCHIMENT D'ARGENT
-% Fichier Principal : main.tex (Format Académique Compact ~30 pages)
+% Fichier Principal : main.tex (Format Académique Haute Densité ~10 pages)
 % ==============================================================================
 
 \documentclass[11pt,a4paper,oneside]{report}
@@ -11,20 +11,20 @@
 \usepackage{lmodern}
 \usepackage{microtype}
 
-% Interligne académique compact et équilibré
-\linespread{1.12}
+% Interligne académique compact et optimisé
+\linespread{1.04}
 
 % Support linguistique (Français par défaut, Anglais secondaire)
 \usepackage[english,french]{babel}
 
-% Mise en page et géométrie
+% Mise en page et géométrie compacte (optimisation de l'espace imprimable)
 \usepackage[
-    top=2.2cm,
-    bottom=2.2cm,
-    left=2.5cm,
-    right=2.2cm,
-    headheight=14pt,
-    footskip=1.1cm
+    top=1.8cm,
+    bottom=1.8cm,
+    left=2.0cm,
+    right=1.8cm,
+    headheight=13pt,
+    footskip=0.8cm
 ]{geometry}
 
 % En-têtes et pieds de page académiques
@@ -33,11 +33,11 @@
 \fancyhf{}
 \fancyhead[L]{\small\scshape\nouppercase{\leftmark}}
 \fancyhead[R]{\small\thepage}
-\fancyfoot[C]{\footnotesize\color{gray} Mini-Projet 17 -- AML Distributed Graph Analytics}
+\fancyfoot[C]{\footnotesize\color{gray} ENSAM Rabat -- Projet Big Data 2026/2027 -- Détection AML Streaming}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0.2pt}
 
-% Style pour les pages d'ouverture de chapitre
+% Style pour les pages d'ouverture
 \fancypagestyle{plain}{
     \fancyhf{}
     \fancyfoot[C]{\small\thepage}
@@ -52,29 +52,23 @@
 \begin{document}
 
 % ==============================================================================
-% PARTIE LIMINAIRE (FRONTMATTER)
+% PAGE 1 : PAGE DE GARDE OFFICIELLE (ENSAM RABAT / UM5)
 % ==============================================================================
-\pagenumbering{roman}
-
-% Page de garde officielle
 \input{frontmatter/titlepage.tex}
-
-% Résumé (Français) & Abstract (Anglais) sur une seule page
-\input{frontmatter/abstract_bilingual.tex}
-
-% Table des matières compacte
-\tableofcontents
-\newpage
-
-% Liste des acronymes
-\input{frontmatter/acronyms.tex}
 \newpage
 
 % ==============================================================================
-% CORPS PRINCIPAL DU MÉMOIRE (MAINMATTER)
+% PAGE 2 : SOMMAIRE EXÉCUTIF, RÉSUMÉ BILINGUE & ACRONYMES CLÉS
 % ==============================================================================
 \pagenumbering{arabic}
+\setcounter{page}{2}
 
+\input{frontmatter/executive_frontmatter.tex}
+\newpage
+
+% ==============================================================================
+% PAGES 3 À 9 : CORPS TECHNIQUE DU PROJET
+% ==============================================================================
 \input{chapters/ch1_introduction.tex}
 \input{chapters/ch2_state_of_art.tex}
 \input{chapters/ch3_system_architecture.tex}
@@ -84,16 +78,12 @@
 \input{chapters/ch7_conclusion.tex}
 
 % ==============================================================================
-% RÉFÉRENCES BIBLIOGRAPHIQUES
+% PAGE 10 : RÉFÉRENCES BIBLIOGRAPHIQUES & ANNEXES TECHNIQUES CONDENSÉES
 % ==============================================================================
 \bibliographystyle{plain}
 \bibliography{biblio/references}
 \addcontentsline{toc}{chapter}{Références Bibliographiques}
 
-% ==============================================================================
-% ANNEXES TECHNIQUES (APPENDICES)
-% ==============================================================================
-\appendix
 \input{appendices/annexes.tex}
 
 \end{document}

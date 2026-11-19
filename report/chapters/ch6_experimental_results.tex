@@ -5,85 +5,52 @@
 \chapter{Tests, Validation et Benchmarks de Performance}
 \label{ch:experiments}
 
-\section{Environnement expérimental}
+\section{Environnement expérimental et jeu de données IBM AMLSim}
 
-L'ensemble des expérimentations et des tests de conformité a été réalisé sur un environnement conteneurisé reproductible :
-\begin{itemize}
-    \item \textbf{Machine hôte :} Processeur 8 cœurs x86\_64 (3.2 GHz), 16 Go de mémoire RAM, stockage SSD NVMe sous Windows 11 / WSL2 Debian ;
-    \item \textbf{Ressources allouées aux conteneurs :} 4 cœurs CPU et 4 Go de RAM pour Spark, 2 Go pour Kafka ;
-    \item \textbf{Versions logicielles :} Apache Spark 3.5.1, GraphFrames 0.8.4, Delta Lake 3.2.0, Apache Kafka 3.5.1, Next.js 14.2.
-\end{itemize}
+L'évaluation a été menée sur une machine hôte 8 cœurs (3.2 GHz), 16 Go de RAM sous Windows 11 / WSL2 Debian. Les conteneurs Docker allouent 4 cœurs CPU et 4 Go de RAM à Apache Spark 3.5.1, et 2 Go à Apache Kafka 3.5.1. Le jeu de données volumétrique de référence \textbf{IBM AMLSim} \cite{weber2018scalable} (\texttt{20K\_cycle200}) comprend $\mathbf{20\,000}$ comptes actifs, $\mathbf{117\,805}$ transactions horodatées et $\mathbf{200}$ cycles de blanchiment injectés représentant la vérité terrain. Aucun attribut de fraude n'est injecté dans le flux (\textit{Zero Label Leakage}).
 
-\section{Jeu de données de test IBM AMLSim (20K comptes)}
+\section{Matrice de conformité des 22 tests d'acceptation (AT-01 à AT-22)}
 
-Pour évaluer le système sur des graphes de transactions réalistes, nous avons utilisé le générateur de référence \textbf{IBM AMLSim} \cite{weber2018scalable} du MIT-IBM Watson AI Lab.
-
-Le jeu de données volumétrique retenu (\texttt{20K\_cycle200}) comporte :
-\begin{itemize}
-    \item $\mathbf{20\,000}$ comptes bancaires actifs ;
-    \item $\mathbf{117\,805}$ transactions financières horodatées ;
-    \item $\mathbf{200}$ cycles de blanchiment d'argent injectés représentant la vérité terrain (\textit{Ground Truth}).
-\end{itemize}
-
-\begin{academicnote}[Garantie d'Étanchéité Absolue (Zero Label Leakage)]
-Pour respecter la rigueur méthodologique, les attributs de fraude présents dans le fichier source d'IBM AMLSim (\texttt{is\_sar}, \texttt{alert\_id}) ont été préalablement séparés et stockés dans un registre d'évaluation disjoint. Le moteur de streaming ne reçoit que des transactions brutes, éliminant tout risque de fuite d'information (\textit{Data Leakage}).
-\end{academicnote}
-
-\section{Matrice de conformité des 22 tests d'acceptation}
-
-Pour valider l'exactitude fonctionnelle de notre implémentation, une suite complète de **22 tests d'acceptation (AT-01 à AT-22)** a été automatisée et exécutée via \texttt{pytest}. Tous les tests ont été validés avec un taux de réussite de $100\,\%$, comme résumé dans le Tableau~\ref{tab:acceptance_tests}.
+Une suite complète de 22 tests d'acceptation a été automatisée avec \texttt{pytest}. Tous les tests ont été validés avec un taux de succès de $100\,\%$, comme résumé dans le Tableau~\ref{tab:acceptance_tests}.
 
 \begin{table}[htbp]
 \centering
 \caption{Validation de la matrice des 22 critères d'acceptation fonctionnelle}
 \label{tab:acceptance_tests}
 \scriptsize
-\begin{tabularx}{\textwidth}{c p{4.5cm} X c}
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.90}
+\begin{tabularx}{\textwidth}{c X c | c X c}
 \toprule
-\textbf{Code} & \textbf{Intitulé du Test} & \textbf{Critère de Succès Validé} & \textbf{Résultat} \\
+\textbf{Code} & \textbf{Spécification Validée} & \textbf{Résultat} & \textbf{Code} & \textbf{Spécification Validée} & \textbf{Résultat} \\
 \midrule
-\textbf{AT-01} & Triangle simple intra-fenêtre & Détection exacte du cycle 3-nœuds avec preuve topologique. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-02} & Invariance par rotation & Les 3 permutations initiales produisent le même \alertID. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-03} & Arrivée multi-lots d'arêtes & Alerte déclenchée à l'arrivée exacte de la 3\textsuperscript{e} arête de clôture. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-04} & Chaîne ouverte ($A \to B \to C$) & Zéro alerte générée pour un transfert linéaire sans bouclage. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-05} & Auto-virement ($A \to A$) & Exclu des motifs de cycles triangulaires lors du filtrage FSM. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-06} & Événements distants ($> 10\text{ min}$) & Pas de fenêtre commune partagée $\implies$ aucune alerte produite. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-07} & Bornes d'intervalles $[start, end)$ & Respect strict de la sémantique temporelle semi-ouverte. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-08} & Déduplication fenêtres imbriquées & 20 fenêtres imbriquées convergent vers une unique alerte Delta. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-09} & Arrivée désordonnée intra-fenêtre & Arête parvenue avec horodatage antérieur détectée sans perte. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-10} & Événement antérieur au Watermark & Transaction avec $t < W$ archivée sans perturber le streaming en ligne. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-11} & Transaction dupliquée & Traitement idempotent sans double écriture dans la couche Silver. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-12} & Virement conflictuel & Même ID avec contenu modifié routé vers \texttt{conflict\_transactions}. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-13} & JSON malformé / Décimales & Rejet en quarantaine sans interruption du moteur Spark. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-14} & Horodatage futur abusif & Rejet en quarantaine pour empêcher la manipulation temporelle. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-15} & Devises mixtes dans le cycle & Exclusion formelle des cycles multi-devises du modèle de base. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-16} & Cycle d'ordre 4 ($A \to B \to C \to D \to A$) & Non capturé par le motif d'ordre 3 (spécificité topologique stricte). & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-17} & Carrefour marchand légitime & PageRank élevé discriminant le compte des mules de fraude. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-18} & Reconstruction hors ligne & Sous-graphe reconstruit à $100\,\%$ depuis Delta sans dépendre de Kafka. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-19} & Reprise après crash et arrêt & Redémarrage sur checkpoint conservant l'intégrité des alertes. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-20} & Tolérance aux pannes de publication & Déduplication consommateur assurée par la clé Kafka \alertID. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-21} & Non-avancement du filigrane au repos & Le flux inactif n'avance pas artificiellement le watermark. & \textbf{\color{emeraldSuccess}PASS} \\
-\textbf{AT-22} & Campagnes de charge sous débit & Validation des débits et latences sur les 3 profils L1, L2 et L3. & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-01} & Triangle simple intra-fenêtre & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-12} & Virement conflictuel (ID identique) & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-02} & Invariance par permutation rotatoire & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-13} & JSON malformé / Décimales & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-03} & Arrivée multi-lots d'arêtes & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-14} & Horodatage futur abusif & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-04} & Chaîne ouverte ($A \to B \to C$) sans cycle & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-15} & Devises mixtes dans le cycle & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-05} & Auto-virement ($A \to A$) & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-16} & Cycle d'ordre 4 ($A \to \dots \to A$) & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-06} & Événements distants ($> 10\text{ min}$) & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-17} & Carrefour marchand légitime & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-07} & Bornes d'intervalles $[start, end)$ & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-18} & Reconstruction hors ligne Delta & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-08} & Déduplication fenêtres imbriquées & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-19} & Reprise après crash et arrêt & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-09} & Arrivée désordonnée intra-fenêtre & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-20} & Tolérance pannes publication & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-10} & Antériorité au Watermark & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-21} & Non-avancement au repos & \textbf{\color{emeraldSuccess}PASS} \\
+\textbf{AT-11} & Transaction dupliquée & \textbf{\color{emeraldSuccess}PASS} & \textbf{AT-22} & Profils de charge L1, L2, L3 & \textbf{\color{emeraldSuccess}PASS} \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \section{Résultats des benchmarks de performance sous charge (AT-22)}
 
-Le banc d'essai standardisé (\texttt{scripts/run\_benchmarks.py}) a mesuré le comportement du pipeline sous trois paliers de débit d'ingestion croissants :
-\begin{enumerate}
-    \item \textbf{Niveau 1 (L1 -- Baseline) :} $10\text{ transactions par seconde (TPS)}$ ;
-    \item \textbf{Niveau 2 (L2 -- Standard) :} $100\text{ TPS}$ (régime de croisière) ;
-    \item \textbf{Niveau 3 (L3 -- Stress) :} $500\text{ TPS}$ (charge de pointe extrême).
-\end{enumerate}
+Le banc d'essai standardisé (\texttt{scripts/run\_benchmarks.py}) a évalué le pipeline sous trois paliers de débit : L1 Baseline (10 TPS), L2 Standard (100 TPS) et L3 Stress (500 TPS). Les résultats sont présentés dans le Tableau~\ref{tab:benchmarks}.
 
 \begin{table}[htbp]
 \centering
 \caption{Résultats des campagnes de benchmarks sous charge d'ingestion (AT-22)}
 \label{tab:benchmarks}
-\small
-\setlength{\tabcolsep}{4.5pt}
-\renewcommand{\arraystretch}{1.15}
+\vspace{4pt}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.08}
 \begin{tabularx}{\textwidth}{l *{6}{>{\centering\arraybackslash}X}}
 \toprule
 \textbf{Palier} & \makecell{\textbf{Débit}\\\textbf{Cible}} & \makecell{\textbf{Volume}\\\textbf{Injecté}} & \makecell{\textbf{Latence}\\\textbf{P50}} & \makecell{\textbf{Latence}\\\textbf{P95}} & \textbf{Rappel} & \makecell{\textbf{Mémoire}\\\textbf{RAM}} \\
@@ -95,7 +62,7 @@ Le banc d'essai standardisé (\texttt{scripts/run\_benchmarks.py}) a mesuré le 
 \end{tabularx}
 \end{table}
 
-\screenshotpaired[4.4cm]%
+\screenshotpaired[2.4cm]%
 {figures/fig_benchmark_throughput_latency.png}{Latence P95 vs. Débit (L1, L2, L3)}%
 {figures/fig_pagerank_distribution.png}{Distribution PageRank (Isolation Marchande AT-17)}%
 {Évaluation des performances de latence et validation spectrale de non-régression}%
@@ -103,9 +70,6 @@ Le banc d'essai standardisé (\texttt{scripts/run\_benchmarks.py}) a mesuré le 
 
 \subsection{Analyse des résultats obtenus}
 
-Trois constats majeurs ressortent des mesures expérimentales :
-\begin{enumerate}
-    \item \textbf{Latence sub-seconde ($P95 = 18.95\text{ ms}$) :} Même sous une injection massive de 500 transactions par seconde, le traitement complet du micro-lot prend moins de $20\text{ ms}$, ce qui est très inférieur au pas de glissement de $30\text{ secondes}$ ($18.95\text{ ms} \ll 30\,000\text{ ms}$). Le système n'accumule aucun retard de file ;
-    \item \textbf{Rappel parfait ($100\,\%$) :} Tous les cycles synthétiques injectés ont été identifiés sans aucune omission ;
-    \item \textbf{Consommation mémoire stable ($< 230\text{ Mo}$) :} L'empreinte mémoire du runtime Spark demeure contenue grâce à la purge continue opérée par le filigrane de 120 secondes.
-\end{enumerate}
+Trois constats ressortent des mesures : 1) \textbf{Latence sub-seconde ($P95 = 18.95\text{ ms}$)} : même à $500\text{ TPS}$, le traitement prend moins de $20\text{ ms} \ll 30\,000\text{ ms}$ (pas de glissement), sans retard de file ; 2) \textbf{Rappel parfait ($100\,\%$)} : tous les cycles injectés sont isolés sans faux négatifs ; 3) \textbf{Empreinte mémoire contenue ($< 230\text{ Mo}$)} grâce à l'éviction continue opérée par le watermark.
+
+\newpage

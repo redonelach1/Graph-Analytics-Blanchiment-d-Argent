@@ -23,6 +23,10 @@
 \usepackage{hyperref}
 \usepackage{csquotes}
 \usepackage{titlesec}
+\usepackage{etoolbox}
+
+% Patch pour permettre aux chapitres de s'enchaîner sans saut de page forcé
+\patchcmd{\chapter}{\clearpage}{\par\vspace{10pt}}{}{}
 
 % Palette de couleurs institutionnelle
 \definecolor{EnsamBlue}{RGB}{21, 60, 85}        % Bleu Officiel ENSAM
@@ -39,15 +43,44 @@
 \definecolor{codeString}{RGB}{13, 148, 136}     % Teal 600
 \definecolor{codeKeyword}{RGB}{67, 56, 202}     % Indigo 700
 
-% Configuration compacte des titres académiques (Standard Mémoire d'Ingénieur)
+% Configuration haute densité des titres académiques (~10 pages)
 \titleformat{\chapter}[hang]
-  {\normalfont\Large\bfseries\color{primaryNavy}}
+  {\normalfont\large\bfseries\color{primaryNavy}}
   {\thechapter.\ }
   {0pt}
   {}
-\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
-\titlespacing*{\section}{0pt}{10pt}{4pt}
-\titlespacing*{\subsection}{0pt}{8pt}{3pt}
+\titlespacing*{\chapter}{0pt}{9pt plus 2pt minus 2pt}{3pt plus 1pt minus 1pt}
+
+\titleformat{\section}[hang]
+  {\normalfont\normalsize\bfseries\color{secondaryBlue}}
+  {\thesection\ }
+  {0pt}
+  {}
+\titlespacing*{\section}{0pt}{7pt plus 2pt minus 2pt}{2pt plus 1pt minus 1pt}
+
+\titleformat{\subsection}[hang]
+  {\normalfont\small\bfseries\itshape\color{primaryNavy}}
+  {\thesubsection\ }
+  {0pt}
+  {}
+\titlespacing*{\subsection}{0pt}{5pt plus 1pt minus 1pt}{1.5pt plus 1pt minus 1pt}
+
+% Espacements de paragraphes et de flottants ultra-optimisés
+\setlength{\parskip}{2.2pt}
+\setlength{\parindent}{0pt}
+\setlength{\intextsep}{5pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{5pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{4pt}
+\captionsetup{font=small,labelfont=bf}
+\captionsetup[table]{skip=5pt}
+\captionsetup[figure]{skip=3pt}
+\captionsetup[sub]{skip=2pt}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
 
 % Configuration des hyperliens
 \hypersetup{
@@ -131,33 +164,34 @@
     morecomment=[l]{\#}
 }
 
-% Commande unifiée d'insertion de figure pleine largeur
-\newcommand{\singlefigure}[4][0.92\linewidth]{%
+% Commande unifiée d'insertion de figure compacte
+\newcommand{\singlefigure}[4][3.5cm]{%
     \begin{figure}[htbp]
         \centering
-        \includegraphics[width=#1]{#2}%
-        \caption{#3}%
+        \includegraphics[width=0.88\linewidth,height=#1,keepaspectratio]{#2}%
+        \vspace{-1.5mm}
+        \caption{\small #3}%
         \label{#4}%
     \end{figure}
 }
 
-% Commande d'insertion de 2 captures côte-à-côte (hauteur 4.4cm)
+% Commande d'insertion de 2 captures côte-à-côte compactes
 % Usage : \screenshotpaired[hauteur]{img1}{caption1}{img2}{caption2}{Main caption}{Main label}
-\newcommand{\screenshotpaired}[7][4.4cm]{%
+\newcommand{\screenshotpaired}[7][3.5cm]{%
     \begin{figure}[htbp]
         \centering
-        \begin{subfigure}[b]{0.485\textwidth}
+        \begin{subfigure}[b]{0.488\textwidth}
             \centering
             \includegraphics[width=\linewidth,height=#1,keepaspectratio]{#2}
-            \caption{#3}
+            \caption{\footnotesize #3}
         \end{subfigure}\hfill
-        \begin{subfigure}[b]{0.485\textwidth}
+        \begin{subfigure}[b]{0.488\textwidth}
             \centering
             \includegraphics[width=\linewidth,height=#1,keepaspectratio]{#4}
-            \caption{#5}
+            \caption{\footnotesize #5}
         \end{subfigure}
-        \vspace{1mm}
-        \caption{#6}
+        \vspace{-1.5mm}
+        \caption{\small #6}
         \label{#7}
     \end{figure}
 }
