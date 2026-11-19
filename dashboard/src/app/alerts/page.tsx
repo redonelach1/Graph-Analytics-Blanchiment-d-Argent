@@ -1,19 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
-  ShieldAlert,
   Search,
-  SlidersHorizontal,
   ChevronRight,
-  ExternalLink,
-  AlertTriangle,
   ArrowUpDown,
   Filter,
-  CheckCircle2,
   Calendar,
-  Layers
+  Layers,
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,8 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { FraudAlert } from "@/lib/data-service";
 
-// Mock data imported on client
 const INITIAL_ALERTS = [
   {
     alert_id: "ALT-7D29F4C1B039A8E2",
@@ -101,7 +96,7 @@ const INITIAL_ALERTS = [
     event_min: "2026-11-02 17:08:10",
     event_max: "2026-11-02 17:11:40",
     total_amount: 14200.00,
-  }
+  },
 ];
 
 export default function AlertsPage() {
@@ -109,17 +104,39 @@ export default function AlertsPage() {
   const [selectedRisk, setSelectedRisk] = useState<string>("ALL");
   const [sortField, setSortField] = useState<"time" | "amount">("time");
   const [sortAsc, setSortAsc] = useState<boolean>(false);
+  const [alerts, setAlerts] = useState<any[]>(INITIAL_ALERTS);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch("/api/alerts");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.alerts && json.alerts.length > 0 && isMounted) {
+            setAlerts(json.alerts);
+          }
+        }
+      } catch (err) {}
+    };
+    fetchAlerts();
+    const timer = setInterval(fetchAlerts, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   const filteredAlerts = useMemo(() => {
-    return INITIAL_ALERTS.filter((alert) => {
+    return alerts.filter((alert) => {
       const matchesRisk = selectedRisk === "ALL" || alert.risk_level === selectedRisk;
       const q = searchTerm.toLowerCase();
       const matchesSearch =
         !q ||
         alert.alert_id.toLowerCase().includes(q) ||
         alert.cycle_id.toLowerCase().includes(q) ||
-        alert.account_ids.some((acc) => acc.toLowerCase().includes(q)) ||
-        alert.reason_codes.some((r) => r.toLowerCase().includes(q));
+        (alert.account_ids && alert.account_ids.some((acc: string) => acc.toLowerCase().includes(q))) ||
+        (alert.reason_codes && alert.reason_codes.some((r: string) => r.toLowerCase().includes(q)));
 
       return matchesRisk && matchesSearch;
     }).sort((a, b) => {
@@ -133,83 +150,82 @@ export default function AlertsPage() {
           : new Date(b.first_detected_at).getTime() - new Date(a.first_detected_at).getTime();
       }
     });
-  }, [searchTerm, selectedRisk, sortField, sortAsc]);
+  }, [alerts, searchTerm, selectedRisk, sortField, sortAsc]);
 
   const totalFilteredVolume = filteredAlerts.reduce((sum, a) => sum + (a.total_amount || 0), 0);
-  const highCount = INITIAL_ALERTS.filter((a) => a.risk_level === "HIGH").length;
-  const mediumCount = INITIAL_ALERTS.filter((a) => a.risk_level === "MEDIUM").length;
-  const lowCount = INITIAL_ALERTS.filter((a) => a.risk_level === "LOW").length;
+  const highCount = alerts.filter((a) => a.risk_level === "HIGH").length;
+  const mediumCount = alerts.filter((a) => a.risk_level === "MEDIUM").length;
 
   return (
     <div className="flex-1 pb-16">
       <Header
-        title="Fraud Alerts & Ring Inquiries"
+        title="Fraud Alerts Ledger"
         description="Deterministic temporal cycle alerts published to Delta Lake & Kafka fraud-alerts"
       />
 
       <main className="p-8 space-y-6 max-w-7xl">
-        {/* KPI Summary strip */}
+        {/* Metric strip */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Total Alerts</CardTitle>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Total Alerts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">{INITIAL_ALERTS.length}</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Deduplicated by canonical hash</p>
+              <div className="text-2xl font-bold font-mono text-foreground">{INITIAL_ALERTS.length}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">Deduplicated by SHA-256</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">High Risk Rings</CardTitle>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">High Risk</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-400">{highCount}</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Volume ≥ 100,000 MAD</p>
+              <div className="text-2xl font-bold font-mono text-red-400">{highCount}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Threshold ≥ 100,000 MAD</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Medium Risk</CardTitle>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Medium Risk</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-400">{mediumCount}</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Volume 20k - 100k MAD</p>
+              <div className="text-2xl font-bold font-mono text-amber-400">{mediumCount}</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Threshold 20k - 100k MAD</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Filtered Volume</CardTitle>
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Selected Volume</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-400">
+              <div className="text-2xl font-bold font-mono text-zinc-100">
                 {formatCurrency(totalFilteredVolume, "MAD")}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{filteredAlerts.length} cycles active</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{filteredAlerts.length} cycles active</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filter Toolbar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl border border-border/70 bg-slate-900/70 p-4 backdrop-blur-md">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-lg border border-border bg-card p-3">
           {/* Search Input */}
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search Alert ID, Account ID, or Cycle ID..."
+              placeholder="Search alert, cycle, or account ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-slate-950/80 border-border/80 text-xs"
+              className="pl-8 bg-zinc-900 border-border text-xs font-mono"
             />
           </div>
 
           {/* Risk Level Pills */}
-          <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <span className="text-xs text-muted-foreground mr-1 flex items-center gap-1">
-              <Filter className="h-3.5 w-3.5" /> Risk:
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-1.5 flex items-center gap-1 font-mono">
+              <Filter className="h-3 w-3" /> Tier:
             </span>
             {["ALL", "HIGH", "MEDIUM", "LOW"].map((level) => {
               const isActive = selectedRisk === level;
@@ -217,16 +233,10 @@ export default function AlertsPage() {
                 <button
                   key={level}
                   onClick={() => setSelectedRisk(level)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                     isActive
-                      ? level === "HIGH"
-                        ? "bg-red-500/20 text-red-300 border border-red-500/40"
-                        : level === "MEDIUM"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                        : level === "LOW"
-                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                        : "bg-slate-700 text-white border border-slate-600"
-                      : "text-muted-foreground hover:bg-slate-800/80 border border-transparent"
+                      ? "bg-zinc-800 text-white font-semibold"
+                      : "text-muted-foreground hover:text-zinc-200"
                   }`}
                 >
                   {level}
@@ -241,67 +251,56 @@ export default function AlertsPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                if (sortField === "amount") {
-                  setSortAsc(!sortAsc);
-                } else {
-                  setSortField("amount");
-                  setSortAsc(false);
-                }
+                if (sortField === "amount") setSortAsc(!sortAsc);
+                else { setSortField("amount"); setSortAsc(false); }
               }}
-              className={`text-xs h-8 ${sortField === "amount" ? "border-primary text-primary" : ""}`}
+              className={`text-xs h-8 border-border ${sortField === "amount" ? "text-white bg-zinc-800" : "text-zinc-400"}`}
             >
-              <ArrowUpDown className="h-3.5 w-3.5 mr-1" />
+              <ArrowUpDown className="h-3 w-3 mr-1.5" />
               Volume
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                if (sortField === "time") {
-                  setSortAsc(!sortAsc);
-                } else {
-                  setSortField("time");
-                  setSortAsc(false);
-                }
+                if (sortField === "time") setSortAsc(!sortAsc);
+                else { setSortField("time"); setSortAsc(false); }
               }}
-              className={`text-xs h-8 ${sortField === "time" ? "border-primary text-primary" : ""}`}
+              className={`text-xs h-8 border-border ${sortField === "time" ? "text-white bg-zinc-800" : "text-zinc-400"}`}
             >
-              <Calendar className="h-3.5 w-3.5 mr-1" />
+              <Calendar className="h-3 w-3 mr-1.5" />
               Timestamp
             </Button>
           </div>
         </div>
 
         {/* Alerts Table */}
-        <Card className="bg-slate-900/60 border-border/60 overflow-hidden">
+        <Card className="border-border bg-card overflow-hidden">
           <Table>
-            <TableHeader className="bg-slate-950/80">
-              <TableRow className="border-border/60 hover:bg-transparent">
-                <TableHead className="w-[180px] text-xs font-semibold">Alert & Cycle ID</TableHead>
-                <TableHead className="w-[100px] text-xs font-semibold">Risk Level</TableHead>
-                <TableHead className="text-xs font-semibold">Target Accounts (Cycle Loop)</TableHead>
-                <TableHead className="text-xs font-semibold text-right">Flagged Volume</TableHead>
-                <TableHead className="text-xs font-semibold">Event Window</TableHead>
-                <TableHead className="text-xs font-semibold">Reason Codes</TableHead>
-                <TableHead className="w-[140px] text-xs font-semibold text-right">Action</TableHead>
+            <TableHeader>
+              <TableRow className="border-border/60 text-[11px]">
+                <TableHead className="w-[180px]">Alert / Cycle ID</TableHead>
+                <TableHead className="w-[100px]">Risk Tier</TableHead>
+                <TableHead>Entities Involved</TableHead>
+                <TableHead className="text-right">Flagged Volume</TableHead>
+                <TableHead>Event Window</TableHead>
+                <TableHead>Reason Codes</TableHead>
+                <TableHead className="w-[120px] text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAlerts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                    No fraud alerts match the search criteria or risk filter.
+                  <TableCell colSpan={7} className="h-28 text-center text-muted-foreground text-xs">
+                    No fraud alerts match the search criteria.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredAlerts.map((alert) => (
-                  <TableRow
-                    key={alert.alert_id}
-                    className="border-border/40 hover:bg-slate-800/40 transition-colors group"
-                  >
+                  <TableRow key={alert.alert_id} className="border-border/40 hover:bg-zinc-900/40">
                     <TableCell className="font-mono text-xs">
-                      <div className="font-semibold text-foreground">{alert.alert_id}</div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <div className="font-medium text-zinc-200">{alert.alert_id}</div>
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Layers className="h-3 w-3" /> {alert.cycle_id}
                       </div>
                     </TableCell>
@@ -315,56 +314,46 @@ export default function AlertsPage() {
                             ? "warning"
                             : "outline"
                         }
+                        className="text-[10px] px-2 py-0"
                       >
                         {alert.risk_level}
                       </Badge>
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {alert.account_ids.map((acct, idx) => (
+                      <div className="flex items-center gap-1 font-mono text-xs text-zinc-300 flex-wrap">
+                        {alert.account_ids.map((acct: string, idx: number) => (
                           <React.Fragment key={acct}>
-                            <span className="font-mono text-[11px] bg-slate-950 px-2 py-0.5 rounded border border-border/60 text-slate-300">
-                              {acct}
-                            </span>
+                            <span>{acct}</span>
                             {idx < alert.account_ids.length - 1 && (
-                              <span className="text-muted-foreground text-xs">→</span>
+                              <span className="text-zinc-600">→</span>
                             )}
                           </React.Fragment>
                         ))}
                       </div>
                     </TableCell>
 
-                    <TableCell className="text-right">
-                      <span className="font-bold text-emerald-400 font-mono text-sm">
-                        {formatCurrency(alert.total_amount || 0, alert.currency)}
-                      </span>
+                    <TableCell className="text-right font-mono font-medium text-zinc-200 text-xs">
+                      {formatCurrency(alert.total_amount || 0, alert.currency)}
                     </TableCell>
 
-                    <TableCell className="text-xs text-muted-foreground">
-                      <div className="text-[11px] text-slate-300 font-medium">
-                        {formatDate(alert.first_detected_at)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        Span: {formatDate(alert.event_min).split(" ")[1]} - {formatDate(alert.event_max).split(" ")[1]}
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      <div>{formatDate(alert.first_detected_at)}</div>
+                      <div className="text-[10px] text-zinc-500">
+                        {formatDate(alert.event_min).split(" ")[1]} - {formatDate(alert.event_max).split(" ")[1]}
                       </div>
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[220px]">
-                        {alert.reason_codes.slice(0, 2).map((code) => (
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {alert.reason_codes.slice(0, 2).map((code: string) => (
                           <span
                             key={code}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/60"
+                            className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-border font-mono"
                           >
                             {code}
                           </span>
                         ))}
-                        {alert.reason_codes.length > 2 && (
-                          <span className="text-[9px] text-muted-foreground px-1">
-                            +{alert.reason_codes.length - 2} more
-                          </span>
-                        )}
                       </div>
                     </TableCell>
 
@@ -372,10 +361,11 @@ export default function AlertsPage() {
                       <Link href={`/investigate/${alert.alert_id}`}>
                         <Button
                           size="sm"
-                          className="h-8 text-xs bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-500/20 group-hover:scale-105 transition-all"
+                          variant="outline"
+                          className="h-7 text-xs border-border text-zinc-300 hover:text-white hover:bg-zinc-800"
                         >
                           Investigate
-                          <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                          <ChevronRight className="h-3 w-3 ml-1" />
                         </Button>
                       </Link>
                     </TableCell>
@@ -389,4 +379,3 @@ export default function AlertsPage() {
     </div>
   );
 }
-

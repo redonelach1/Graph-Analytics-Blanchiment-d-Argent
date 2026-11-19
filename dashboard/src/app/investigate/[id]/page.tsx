@@ -4,15 +4,12 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   ShieldAlert,
-  Download,
-  AlertTriangle,
   Clock,
   Layers,
-  CheckCircle,
-  FileText,
-  Share2,
-  ExternalLink,
-  Info
+  CheckCircle2,
+  Info,
+  Building2,
+  Users,
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NetworkGraph } from "@/components/network-graph";
+import { SARExportButton } from "@/components/sar-export-button";
 import { getAlertById, getAccountMetrics } from "@/lib/data-service";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -36,23 +34,24 @@ interface InvestigatePageProps {
   };
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function InvestigatePage({ params }: InvestigatePageProps) {
   const alert = await getAlertById(params.id);
 
   if (!alert) {
     return (
-      <div className="flex-1 p-12 flex flex-col items-center justify-center text-center space-y-4">
-        <div className="p-4 rounded-full bg-red-500/10 text-red-400">
-          <ShieldAlert className="h-10 w-10" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground">Alert Not Found</h2>
-        <p className="text-sm text-muted-foreground max-w-md">
-          The alert ID <span className="font-mono text-primary font-semibold">{params.id}</span> does not exist in the active Delta Lake fraud store.
+      <div className="flex-1 p-16 flex flex-col items-center justify-center text-center space-y-4">
+        <ShieldAlert className="h-10 w-10 text-zinc-500" />
+        <h2 className="text-lg font-semibold text-foreground">Alert Dossier Not Found</h2>
+        <p className="text-xs text-muted-foreground font-mono max-w-md">
+          The requested identifier &ldquo;{params.id}&rdquo; does not match any committed alert in Delta Lake.
         </p>
         <Link href="/alerts">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Return to Alerts
+          <Button variant="outline" size="sm" className="text-xs border-border">
+            <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+            Back to Alerts
           </Button>
         </Link>
       </div>
@@ -65,36 +64,28 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
   return (
     <div className="flex-1 pb-16">
       <Header
-        title={`Investigation Dossier: ${alert.alert_id}`}
+        title={`Forensic Dossier: ${alert.alert_id}`}
         description="Graph topology forensics, transaction timeline, and regulatory compliance evidence"
       />
 
-      <main className="p-8 space-y-8 max-w-7xl">
+      <main className="p-8 space-y-6 max-w-7xl">
         {/* Navigation & Action Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <Link
             href="/alerts"
-            className="flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
           >
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
-            Back to Alerts Directory
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+            Return to Alerts Ledger
           </Link>
 
-          <div className="flex items-center gap-2.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs h-8 bg-slate-900 border-border/80"
-              onClick={undefined}
-            >
-              <Download className="h-3.5 w-3.5 mr-1.5 text-blue-400" />
-              Download SAR JSON
-            </Button>
+          <div className="flex items-center gap-2">
+            <SARExportButton alert={alert} />
             <Button
               size="sm"
-              className="text-xs h-8 bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-500/20"
+              variant="destructive"
+              className="text-xs h-8 font-medium"
             >
-              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
               Escalate to Compliance
             </Button>
           </div>
@@ -102,9 +93,9 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
 
         {/* Top Summary Banner */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-slate-900/60 border-border/60">
+          <Card className="border-border bg-card">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Risk Rating</CardTitle>
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Risk Rating</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
@@ -116,22 +107,24 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
                       ? "warning"
                       : "outline"
                   }
-                  className="text-xs px-2.5 py-0.5"
+                  className="text-[10px] px-2 py-0"
                 >
-                  {alert.risk_level} RISK
+                  {alert.risk_level} SEVERITY
                 </Badge>
-                <span className="text-xs text-muted-foreground">Rule v{alert.rule_version}</span>
+                <span className="text-[11px] text-muted-foreground font-mono">Rule v{alert.rule_version}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">Rule: {alert.rule_id}</p>
+              <p className="text-[11px] text-muted-foreground mt-1 font-mono">
+                {alert.rule_id}
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
+          <Card className="border-border bg-card">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Flagged Loop Volume</CardTitle>
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Loop Volume</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold text-emerald-400 font-mono">
+              <div className="text-xl font-bold text-zinc-100 font-mono">
                 {formatCurrency(alert.total_amount || 0, alert.currency)}
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -140,80 +133,69 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
+          <Card className="border-border bg-card">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Detection Timestamp</CardTitle>
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Detection Timestamp</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-xs font-mono font-medium text-zinc-200">
                 {formatDate(alert.first_detected_at)}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Event Time Window
+              <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
+                <Clock className="h-3 w-3" /> Event Horizon
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
+          <Card className="border-border bg-card">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">Canonical Cycle ID</CardTitle>
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Canonical Cycle Hash</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xs font-mono font-semibold text-blue-400 truncate">
+              <div className="text-xs font-mono text-zinc-300 truncate" title={alert.cycle_id}>
                 {alert.cycle_id}
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
-                Invariant SHA256 ring fingerprint
+                SHA-256 invariant signature
               </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Central Visualization & Ring Forensics */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Network Graph Visualizer (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">
-                Directed Cycle Topology
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                GraphFrames motif match: (a)-[e1]-&gt;(b); (b)-[e2]-&gt;(c); (c)-[e3]-&gt;(a)
-              </p>
-            </div>
-
+          <div className="lg:col-span-7 space-y-3">
             <NetworkGraph
               accounts={alert.evidence.accounts}
               edges={alert.evidence.edges}
               riskLevel={alert.risk_level}
             />
 
-            <div className="p-3.5 rounded-lg border border-border/60 bg-slate-900/40 text-xs text-muted-foreground space-y-1">
-              <div className="flex items-center gap-1.5 font-semibold text-foreground">
+            <div className="p-3 rounded-md border border-border bg-zinc-900/60 text-xs text-muted-foreground space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-zinc-200 text-[11px]">
                 <Info className="h-3.5 w-3.5 text-blue-400" />
                 Topology Invariant:
               </div>
-              <p>
-                This directed triangle completes an illicit layering loop where funds originated at{" "}
-                <span className="font-mono text-primary font-medium">{alert.evidence.edges[0]?.src}</span> and returned via{" "}
-                <span className="font-mono text-primary font-medium">{alert.evidence.edges[2]?.src}</span> within a 10-minute sliding window.
+              <p className="text-[11px] leading-relaxed">
+                Funds originated at <span className="font-mono text-zinc-200">{alert.evidence.edges[0]?.src}</span> and returned via <span className="font-mono text-zinc-200">{alert.evidence.edges[2]?.src}</span> within a 10-minute sliding window, satisfying the closed cycle rule.
               </p>
             </div>
           </div>
 
           {/* Accounts Dossier & Rule Triggers (5 cols) */}
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-5 space-y-4">
             {/* Account Centrality in Ring */}
-            <Card className="bg-slate-900/60 border-border/60">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold text-foreground">
-                  Involved Account Dossiers
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-2.5">
+                <CardTitle className="text-xs font-semibold text-foreground tracking-tight">
+                  Implicated Account Dossiers
                 </CardTitle>
-                <CardDescription className="text-xs">
+                <CardDescription className="text-[11px] text-muted-foreground">
                   PageRank centrality & connected component clustering
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2.5">
                 {alert.account_ids.map((acctId) => {
                   const metric = metricsMap.get(acctId);
                   const pagerank = metric ? metric.pagerank.toFixed(4) : "0.0450";
@@ -223,31 +205,29 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
                   return (
                     <div
                       key={acctId}
-                      className="p-3 rounded-lg border border-border/60 bg-slate-950/60 flex items-center justify-between"
+                      className="p-2.5 rounded-md border border-border bg-zinc-900/50 flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-mono text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <div className="font-mono font-medium text-zinc-200 flex items-center gap-1.5">
                           {acctId}
                           {isHub ? (
-                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-500/40 text-blue-400">
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-800 text-blue-400">
                               HUB
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-red-500/40 text-red-400">
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-red-900 text-red-400">
                               MULE
                             </Badge>
                           )}
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          Cluster ID: <span className="font-mono font-medium text-slate-300">#{component}</span>
+                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                          Cluster: #{component}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs font-mono font-semibold text-blue-400">
-                          PR: {pagerank}
-                        </div>
+                      <div className="text-right font-mono">
+                        <div className="text-zinc-200 font-medium">PR: {pagerank}</div>
                         <div className="text-[10px] text-muted-foreground">
-                          {metric?.alert_count || 1} prior alerts
+                          {metric?.alert_count || 1} alert history
                         </div>
                       </div>
                     </div>
@@ -257,23 +237,23 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
             </Card>
 
             {/* Fired Reason Codes */}
-            <Card className="bg-slate-900/60 border-border/60">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold text-foreground">
-                  Compliance Reason Codes
+            <Card className="border-border bg-card">
+              <CardHeader className="pb-2.5">
+                <CardTitle className="text-xs font-semibold text-foreground tracking-tight">
+                  Compliance Rule Matches
                 </CardTitle>
-                <CardDescription className="text-xs">
-                  Automated heuristics triggered during batch motif execution
+                <CardDescription className="text-[11px] text-muted-foreground">
+                  Automated heuristics triggered during GraphFrames motif mining
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-1.5">
                 {alert.reason_codes.map((code) => (
                   <div
                     key={code}
-                    className="flex items-center gap-2 p-2 rounded-md bg-slate-950/80 border border-border/60 text-xs"
+                    className="flex items-center gap-2 p-2 rounded border border-border bg-zinc-900/40 text-xs"
                   >
-                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                    <span className="font-mono text-slate-300 font-medium">{code}</span>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                    <span className="font-mono text-zinc-300 text-[11px]">{code}</span>
                   </div>
                 ))}
               </CardContent>
@@ -282,50 +262,50 @@ export default async function InvestigatePage({ params }: InvestigatePageProps) 
         </div>
 
         {/* Transaction Evidence Timeline Table */}
-        <Card className="bg-slate-900/60 border-border/60">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-foreground">
-              Sequential Transaction Evidence Flow
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xs font-semibold text-foreground tracking-tight">
+              Sequential Transaction Ledger
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-[11px] text-muted-foreground">
               Reconstructed transaction sequence fulfilling the directed cycle in chronological order
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHeader className="bg-slate-950/80">
-                <TableRow className="border-border/60">
-                  <TableHead className="w-[80px] text-xs">Hop</TableHead>
-                  <TableHead className="text-xs">Transaction ID</TableHead>
-                  <TableHead className="text-xs">Sender (Src)</TableHead>
-                  <TableHead className="text-xs">Receiver (Dst)</TableHead>
-                  <TableHead className="text-xs text-right">Amount</TableHead>
-                  <TableHead className="text-xs">Event Timestamp</TableHead>
-                  <TableHead className="text-xs">Currency</TableHead>
+              <TableHeader>
+                <TableRow className="border-border/60 text-[11px]">
+                  <TableHead className="w-[60px]">Hop</TableHead>
+                  <TableHead>Transaction ID</TableHead>
+                  <TableHead>Sender Account</TableHead>
+                  <TableHead>Receiver Account</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Currency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {alert.evidence.edges.map((edge, idx) => (
-                  <TableRow key={edge.transaction_id} className="border-border/40 hover:bg-slate-800/40">
-                    <TableCell className="font-mono text-xs font-semibold text-blue-400">
+                  <TableRow key={edge.transaction_id} className="border-border/40 hover:bg-zinc-900/40">
+                    <TableCell className="font-mono text-xs text-muted-foreground">
                       #{idx + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-xs font-medium text-foreground">
+                    <TableCell className="font-mono text-xs font-medium text-zinc-200">
                       {edge.transaction_id}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-300">
+                    <TableCell className="font-mono text-xs text-zinc-300">
                       {edge.src}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-300">
+                    <TableCell className="font-mono text-xs text-zinc-300">
                       {edge.dst}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-bold text-emerald-400 text-xs">
+                    <TableCell className="text-right font-mono font-medium text-zinc-100 text-xs">
                       {formatCurrency(edge.amount, edge.currency)}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {formatDate(edge.time)}
                     </TableCell>
-                    <TableCell className="text-xs font-semibold text-slate-400">
+                    <TableCell className="text-xs font-mono text-zinc-400">
                       {edge.currency}
                     </TableCell>
                   </TableRow>

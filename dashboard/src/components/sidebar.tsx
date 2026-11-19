@@ -6,17 +6,15 @@ import { usePathname } from "next/navigation";
 import {
   ShieldAlert,
   LayoutDashboard,
-  Network,
   Users,
   Activity,
-  Layers,
-  ChevronRight
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/alerts", label: "Fraud Alerts", icon: ShieldAlert, badge: "Live" },
+  { href: "/", label: "Executive Overview", icon: LayoutDashboard },
+  { href: "/alerts", label: "Fraud Ring Alerts", icon: ShieldAlert, badge: "Live" },
   { href: "/accounts", label: "Account Centrality", icon: Users },
   { href: "/health", label: "Pipeline Telemetry", icon: Activity },
 ];
@@ -25,23 +23,23 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-border/60 bg-slate-950/70 backdrop-blur-xl flex flex-col justify-between shrink-0 h-screen sticky top-0">
+    <aside className="w-60 border-r border-border bg-card flex flex-col justify-between shrink-0 h-screen sticky top-0 select-none">
       <div>
         {/* Brand Header */}
-        <div className="p-6 border-b border-border/40 flex items-center space-x-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-lg shadow-blue-500/20">
-            <Network className="h-5 w-5 text-white" />
+        <div className="p-5 border-b border-border/60 flex items-center space-x-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-800 border border-zinc-700">
+            <GitBranch className="h-4 w-4 text-zinc-100" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-tight">AML GraphShield</h1>
-            <p className="text-[11px] text-muted-foreground font-medium">Real-time Cycle Detector</p>
+            <h1 className="text-xs font-semibold text-foreground tracking-tight">AML GraphShield</h1>
+            <p className="text-[10px] text-muted-foreground font-mono">Real-time Cycle Engine</p>
           </div>
         </div>
 
         {/* Navigation items */}
-        <nav className="p-4 space-y-1.5">
-          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-            Analytics & Investigation
+        <nav className="p-3 space-y-1">
+          <div className="px-2.5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Surveillance
           </div>
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -55,18 +53,18 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all group",
+                  "flex items-center justify-between rounded-md px-2.5 py-2 text-xs font-medium transition-colors",
                   isActive
-                    ? "bg-blue-600/15 text-blue-400 border border-blue-500/30 shadow-sm"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    ? "bg-zinc-800 text-white font-semibold"
+                    : "text-muted-foreground hover:bg-zinc-900 hover:text-foreground"
                 )}
               >
-                <div className="flex items-center space-x-3">
-                  <Icon className={cn("h-4 w-4", isActive ? "text-blue-400" : "text-muted-foreground group-hover:text-foreground")} />
+                <div className="flex items-center space-x-2.5">
+                  <Icon className={cn("h-4 w-4", isActive ? "text-zinc-100" : "text-zinc-400")} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold text-red-400 border border-red-500/30">
+                  <span className="rounded px-1.5 py-0.2 text-[9px] font-mono font-semibold bg-red-950 text-red-300 border border-red-800/60">
                     {item.badge}
                   </span>
                 )}
@@ -77,20 +75,19 @@ export function Sidebar() {
       </div>
 
       {/* System Status Footer */}
-      <div className="p-4 m-4 rounded-xl border border-border/50 bg-slate-900/60 text-xs">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-muted-foreground font-medium">Engine Mode</span>
-          <span className="flex items-center gap-1.5 font-semibold text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Online
+      <div className="p-3 m-3 rounded-md border border-border/80 bg-zinc-900/60 text-xs">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-muted-foreground text-[11px]">Stream Status</span>
+          <span className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 font-medium">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            Healthy
           </span>
         </div>
-        <div className="text-[11px] text-muted-foreground flex justify-between">
-          <span>Watermark Latency</span>
-          <span className="text-foreground font-medium">120s (MAD)</span>
+        <div className="text-[10px] text-muted-foreground font-mono flex justify-between">
+          <span>Watermark Lag</span>
+          <span className="text-zinc-300">120s (Event Horizon)</span>
         </div>
       </div>
     </aside>
   );
 }
-

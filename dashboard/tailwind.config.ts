@@ -49,19 +49,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      animation: {
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "glow": "glow 2s ease-in-out infinite alternate",
-      },
-      keyframes: {
-        glow: {
-          "0%": { filter: "drop-shadow(0 0 4px rgba(239, 68, 68, 0.6))" },
-          "100%": { filter: "drop-shadow(0 0 12px rgba(239, 68, 68, 0.9))" },
-        },
-      },
     },
   },
   plugins: [],
 };
-export default config;
 
+export default config;

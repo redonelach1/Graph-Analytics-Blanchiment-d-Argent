@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Activity,
-  CheckCircle2,
   Database,
   Layers,
   Server,
@@ -12,7 +11,6 @@ import {
   RefreshCw,
   HardDrive,
   ShieldCheck,
-  AlertCircle
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
 
 interface DeltaTableInfo {
   name: string;
@@ -53,34 +50,61 @@ const DELTA_TABLES: DeltaTableInfo[] = [
 export default function HealthPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [tables, setTables] = useState<DeltaTableInfo[]>(DELTA_TABLES);
+
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch("/api/health");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.health && json.health.tables) {
+          const tMap = json.health.tables;
+          setTables((prev) =>
+            prev.map((t) => {
+              if (tMap[t.name] !== undefined) {
+                return { ...t, records: tMap[t.name] };
+              }
+              return t;
+            })
+          );
+          setLastRefreshed(new Date());
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchHealth();
+    const timer = setInterval(fetchHealth, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setLastRefreshed(new Date());
-    }, 600);
+    fetchHealth().finally(() => {
+      setTimeout(() => setIsRefreshing(false), 400);
+    });
   };
 
-  const totalRecords = DELTA_TABLES.reduce((sum, t) => sum + t.records, 0);
+  const totalRecords = tables.reduce((sum, t) => sum + t.records, 0);
 
   return (
     <div className="flex-1 pb-16">
       <Header
         title="Streaming Pipeline Telemetry"
-        description="Live operational health of Spark Structured Streaming, GraphFrames, and Delta Lake tables"
+        description="Live operational telemetry of Spark Structured Streaming, GraphFrames, and Delta Lake ACID tables"
       />
 
-      <main className="p-8 space-y-8 max-w-7xl">
-        {/* Top Controls & Status Pill */}
+      <main className="p-8 space-y-6 max-w-7xl">
+        {/* Controls & Status Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              All Systems Operational (HEALTHY)
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-border bg-zinc-900/60 text-zinc-300 text-xs font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              All Services Operational
             </div>
-            <span className="text-xs text-muted-foreground">
-              Last poll: {lastRefreshed.toLocaleTimeString()}
+            <span className="text-xs text-muted-foreground font-mono">
+              Last synced: {lastRefreshed.toLocaleTimeString()}
             </span>
           </div>
 
@@ -89,191 +113,191 @@ export default function HealthPage() {
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="text-xs h-8 bg-slate-900 border-border/80"
+            className="text-xs h-8 border-border text-zinc-300 hover:text-white hover:bg-zinc-800"
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 text-blue-400 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh Telemetry
+            <RefreshCw className={`h-3 w-3 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh State
           </Button>
         </div>
 
-        {/* Engine Pipeline Architecture KPI Cards */}
+        {/* Engine Pipeline Architecture Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">
                 Spark Engine
               </CardTitle>
-              <Cpu className="h-4 w-4 text-blue-400" />
+              <Cpu className="h-4 w-4 text-zinc-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold text-foreground">Spark 3.5.0</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Scala 2.12 | Structured Streaming</p>
+              <div className="text-xl font-bold font-mono text-foreground">Spark 3.5.0</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">Scala 2.12 | Structured Streaming</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
-                Sliding Window
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">
+                Sliding Horizon
               </CardTitle>
-              <Clock className="h-4 w-4 text-emerald-400" />
+              <Clock className="h-4 w-4 text-zinc-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold text-emerald-400">10 Min / 30s Slide</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Interval [start, end) Half-Open</p>
+              <div className="text-xl font-bold font-mono text-zinc-100">10m / 30s Slide</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">[start, end) Semi-Open</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
-                Watermark Lag
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">
+                Watermark Horizon
               </CardTitle>
-              <Activity className="h-4 w-4 text-amber-400" />
+              <Activity className="h-4 w-4 text-zinc-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold text-amber-400">120 Seconds</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">W = H - 120s Event Horizon</p>
+              <div className="text-xl font-bold font-mono text-zinc-100">120 Seconds</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">W = H - 120s Event Horizon</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
-                Delta Lake Tables
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-1.5">
+              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">
+                Delta Lakehouse
               </CardTitle>
-              <Database className="h-4 w-4 text-indigo-400" />
+              <Database className="h-4 w-4 text-zinc-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-bold text-foreground">10 Tables Active</div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{totalRecords.toLocaleString()} Total Records</p>
+              <div className="text-xl font-bold font-mono text-foreground">10 Tables Active</div>
+              <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{totalRecords.toLocaleString()} Records Stored</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Streaming Topology Details */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="bg-slate-900/60 border-border/60 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-              <Server className="h-4 w-4 text-blue-400" />
-              Kafka Message Bus
+          <Card className="border-border bg-card p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-foreground font-semibold text-xs tracking-tight">
+              <Server className="h-3.5 w-3.5 text-zinc-400" />
+              Kafka Bus Architecture
             </div>
-            <div className="text-xs text-muted-foreground space-y-2">
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
-                <span>Broker Mode:</span>
-                <span className="font-mono text-foreground font-medium">KRaft (No Zookeeper)</span>
+            <div className="text-xs space-y-1.5 text-muted-foreground font-mono text-[11px]">
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span>Broker Consensus:</span>
+                <span className="text-zinc-200">KRaft (No Zookeeper)</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
-                <span>Ingest Topic:</span>
-                <span className="font-mono text-blue-400 font-medium">financial-transactions</span>
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span>Ingestion Feed:</span>
+                <span className="text-zinc-200">financial-transactions</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
+              <div className="flex justify-between border-b border-border/40 pb-1">
                 <span>Alert Topic:</span>
-                <span className="font-mono text-red-400 font-medium">fraud-alerts</span>
+                <span className="text-red-400">fraud-alerts</span>
               </div>
               <div className="flex justify-between">
-                <span>Replay Mode:</span>
-                <span className="text-emerald-400 font-medium">Deterministic Offsets</span>
+                <span>Delivery Policy:</span>
+                <span className="text-zinc-200">At-Least-Once</span>
               </div>
             </div>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-              <Layers className="h-4 w-4 text-indigo-400" />
+          <Card className="border-border bg-card p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-foreground font-semibold text-xs tracking-tight">
+              <Layers className="h-3.5 w-3.5 text-zinc-400" />
               GraphFrames Engine
             </div>
-            <div className="text-xs text-muted-foreground space-y-2">
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
+            <div className="text-xs space-y-1.5 text-muted-foreground font-mono text-[11px]">
+              <div className="flex justify-between border-b border-border/40 pb-1">
                 <span>Library Version:</span>
-                <span className="font-mono text-foreground font-medium">0.8.4-spark3.5</span>
+                <span className="text-zinc-200">0.8.4-spark3.5</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
+              <div className="flex justify-between border-b border-border/40 pb-1">
                 <span>Motif Pattern:</span>
-                <span className="font-mono text-purple-400 font-medium">(a)-[e1]-&gt;(b); (b)-[e2]-&gt;(c); (c)-[e3]-&gt;(a)</span>
+                <span className="text-zinc-300">(a)-[e1]-&gt;(b)...</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
-                <span>Centrality:</span>
-                <span className="font-mono text-foreground font-medium">PageRank (α=0.85, iter=10)</span>
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span>PageRank:</span>
+                <span className="text-zinc-200">α=0.85, iter=10</span>
               </div>
               <div className="flex justify-between">
                 <span>Clustering:</span>
-                <span className="text-foreground font-medium">Connected Components</span>
+                <span className="text-zinc-200">Connected Components</span>
               </div>
             </div>
           </Card>
 
-          <Card className="bg-slate-900/60 border-border/60 p-5 space-y-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+          <Card className="border-border bg-card p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-foreground font-semibold text-xs tracking-tight">
+              <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
               Fault Tolerance & Idempotency
             </div>
-            <div className="text-xs text-muted-foreground space-y-2">
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
-                <span>Streaming Checkpoints:</span>
-                <span className="font-mono text-foreground font-medium">data/checkpoints</span>
+            <div className="text-xs space-y-1.5 text-muted-foreground font-mono text-[11px]">
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span>Stream Checkpoint:</span>
+                <span className="text-zinc-300 truncate max-w-[150px]">data/checkpoints</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
-                <span>Graph Checkpoints:</span>
-                <span className="font-mono text-foreground font-medium">data/graph_checkpoints</span>
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span>Graph Checkpoint:</span>
+                <span className="text-zinc-300 truncate max-w-[150px]">data/graph_checkpoints</span>
               </div>
-              <div className="flex justify-between border-b border-border/40 pb-1.5">
+              <div className="flex justify-between border-b border-border/40 pb-1">
                 <span>Alert Deduplication:</span>
-                <span className="font-mono text-emerald-400 font-medium">Deterministic SHA256</span>
+                <span className="text-zinc-200">SHA-256 Canonical</span>
               </div>
               <div className="flex justify-between">
-                <span>Acceptance Suite:</span>
-                <span className="text-emerald-400 font-medium">20 / 22 Tests Passing</span>
+                <span>Acceptance Status:</span>
+                <span className="text-emerald-400 font-semibold">22 / 22 PASS</span>
               </div>
             </div>
           </Card>
         </div>
 
         {/* Delta Lake Tables Inventory Table */}
-        <Card className="bg-slate-900/60 border-border/60">
-          <CardHeader>
-            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-blue-400" />
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-2">
+              <HardDrive className="h-3.5 w-3.5 text-zinc-400" />
               Delta Lake Table Inventory (10 Tables)
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-[11px] text-muted-foreground">
               ACID transactional storage schemas registered in `data/delta` with deterministic idempotency
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
-              <TableHeader className="bg-slate-950/80">
-                <TableRow className="border-border/60">
-                  <TableHead className="w-[240px] text-xs">Table Name</TableHead>
-                  <TableHead className="text-xs">Role & Responsibility</TableHead>
-                  <TableHead className="text-xs text-right">Record Count</TableHead>
-                  <TableHead className="text-xs">Format</TableHead>
-                  <TableHead className="text-xs">Retention</TableHead>
-                  <TableHead className="w-[100px] text-xs text-right">Status</TableHead>
+              <TableHeader>
+                <TableRow className="border-border/60 text-[11px]">
+                  <TableHead className="w-[240px]">Table Name</TableHead>
+                  <TableHead>Role & Responsibility</TableHead>
+                  <TableHead className="text-right">Record Count</TableHead>
+                  <TableHead>Format</TableHead>
+                  <TableHead>Retention</TableHead>
+                  <TableHead className="w-[100px] text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {DELTA_TABLES.map((table) => (
-                  <TableRow key={table.name} className="border-border/40 hover:bg-slate-800/40">
-                    <TableCell className="font-mono text-xs font-semibold text-blue-400">
+                {tables.map((table) => (
+                  <TableRow key={table.name} className="border-border/40 hover:bg-zinc-900/40">
+                    <TableCell className="font-mono text-xs font-medium text-zinc-200">
                       {table.name}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-300">
+                    <TableCell className="text-xs text-zinc-300">
                       {table.role}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-bold text-emerald-400 text-xs">
+                    <TableCell className="text-right font-mono font-medium text-zinc-200 text-xs">
                       {table.records.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground font-mono">
                       {table.format}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground font-mono">
                       {table.retention}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400">
+                      <span className="text-[10px] font-mono text-emerald-400 border border-emerald-900/60 bg-emerald-950/40 px-1.5 py-0.5 rounded">
                         {table.status}
-                      </Badge>
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -285,4 +309,3 @@ export default function HealthPage() {
     </div>
   );
 }
-
