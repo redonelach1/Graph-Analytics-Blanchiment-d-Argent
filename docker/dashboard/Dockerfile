@@ -5,19 +5,21 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Install dependencies
+# Install all dependencies (devDependencies needed for build: tailwind, typescript, etc.)
 COPY dashboard/package*.json ./
-RUN npm install
+RUN npm install --include=dev
 
 # Copy application source
 COPY dashboard ./
 
 # Build production Next.js application
 RUN npm run build
+
+# Set production environment for runtime
+ENV NODE_ENV=production
 
 EXPOSE 3000
 

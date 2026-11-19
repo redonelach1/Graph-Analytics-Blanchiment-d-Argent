@@ -58,5 +58,5 @@ COPY docker/spark/spark-defaults.conf ${SPARK_HOME}/conf/spark-defaults.conf
 # ---------------------------------------------------------------------------
 WORKDIR /opt/app
 
-USER 1001
+USER root
 

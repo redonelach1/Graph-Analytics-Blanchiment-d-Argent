@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =============================================================================
 # Mini-Projet 17 — Graph Analytics & Anti-Money Laundering
 # Docker Compose — Local Development Environment
@@ -57,7 +55,7 @@ services:
       - KAFKA_CFG_NUM_PARTITIONS=3
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
       - KAFKA_CFG_LOG_RETENTION_HOURS=168
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
       - ALLOW_PLAINTEXT_LISTENER=yes
     volumes:
       - kafka-data:/bitnami/kafka
@@ -80,16 +78,14 @@ services:
       kafka:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
-    command: |
-      "
-      echo '--- Creating Kafka topics ---'
-      kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists \
-        --topic financial-transactions --partitions 3 --replication-factor 1
-      kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists \
-        --topic fraud-alerts --partitions 3 --replication-factor 1
-      echo '--- Topics created ---'
-      kafka-topics.sh --bootstrap-server kafka:9094 --list
-      "
+    command:
+      - -c
+      - |
+        echo '--- Creating Kafka topics ---'
+        kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic financial-transactions --partitions 3 --replication-factor 1
+        kafka-topics.sh --bootstrap-server kafka:9094 --create --if-not-exists --topic fraud-alerts --partitions 3 --replication-factor 1
+        echo '--- Topics created ---'
+        kafka-topics.sh --bootstrap-server kafka:9094 --list
     restart: "no"
 
   # ---------------------------------------------------------------------------
@@ -167,6 +163,7 @@ services:
   # Spark Application — Submits jobs to the cluster
   # ---------------------------------------------------------------------------
   spark-app:
+    user: root
     build:
       context: .
       dockerfile: docker/spark/Dockerfile
@@ -174,6 +171,8 @@ services:
     hostname: spark-app
     networks:
       - aml-network
+    ports:
+      - "4040:4040"     # Live Spark Application Web UI (streaming metrics, stages, DAGs)
     depends_on:
       kafka:
         condition: service_healthy
@@ -199,8 +198,34 @@ services:
       - graph-checkpoint-data:/opt/app/data/graph_checkpoints
     stdin_open: true
     tty: true
-    # Default: keep container alive for interactive job submission
-    command: ["tail", "-f", "/dev/null"]
+    command: ["python", "src/spark_graph_fraud_streaming.py", "--role", "all"]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Producer — Real-Time Financial Traffic Generator (Mixed mode with cyclic fraud)
+  # ---------------------------------------------------------------------------
+  producer:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    container_name: aml-producer
+    hostname: producer
+    networks:
+      - aml-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      spark-app:
+        condition: service_started
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9094
+      - APP_CONFIG_PATH=/opt/app/config/default.yaml
+    volumes:
+      - ./src:/opt/app/src:ro
+      - ./config:/opt/app/config:ro
+      - ./data/datasets:/opt/app/data/datasets:ro
+    command: ["python", "src/financial_graph_producer.py", "--mode", "mixed", "--rate", "20", "--count", "0"]
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # Dashboard — Next.js + shadcn/ui Investigation Web Application

@@ -56,4 +56,18 @@ out/
 dashboard/out/
 .turbo/
 
+# LaTeX intermediate build files (keep main.pdf)
+*.aux
+*.bbl
+*.blg
+*.lof
+*.lol
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.fls
+*.fdb_latexmk
+
+
 
