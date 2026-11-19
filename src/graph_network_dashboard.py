@@ -1,32 +1,53 @@
 #!/usr/bin/env python3
 """
-graph_network_dashboard.py — Streamlit + Graph Investigation Fallback Dashboard
+graph_network_dashboard.py — Streamlit + PyVis Graph Investigation Console
 
-Provides an alternative Python-native interactive investigation console over Delta Lake
-fraud alerts and graph metrics, complementing the Next.js production dashboard.
+Entry point 4/4 of Mini-Projet 17 (Livrables Ingénieur).
+Provides an interactive graph visualization console with PyVis and Streamlit,
+complementing the production Next.js 14 web dashboard.
 
 Usage:
     streamlit run src/graph_network_dashboard.py
+    python src/graph_network_dashboard.py --export-html
 """
 
-import os
+import argparse
 import json
+import logging
+import os
+import sys
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("graph_network_dashboard")
 
 try:
     import streamlit as st
+    import streamlit.components.v1 as components
+    STREAMLIT_AVAILABLE = True
 except ImportError:
     st = None
+    components = None
+    STREAMLIT_AVAILABLE = False
 
-# Fallback dataset mirroring Phase 4/5 outputs
-MOCK_ALERTS = [
+try:
+    from pyvis.network import Network
+    PYVIS_AVAILABLE = True
+except ImportError:
+    Network = None
+    PYVIS_AVAILABLE = False
+
+
+# Reference Alerts Dataset
+MOCK_ALERTS: List[Dict[str, Any]] = [
     {
         "alert_id": "ALT-7D29F4C1B039A8E2",
         "cycle_id": "CYC-9B14E2F3A8C7",
         "rule_id": "TEMPORAL_TRIANGLE",
         "rule_version": 1,
-        "risk_level": "HIGH",
+        "risk_level": "CRITICAL",
         "reason_codes": ["DIRECTED_TRIANGLE", "SAME_CURRENCY", "HIGH_VALUE_THRESHOLD_MET", "AMOUNT_RATIO_TOLERANT_1.08"],
         "account_ids": ["ACC-0081", "ACC-0014", "ACC-0003"],
         "transaction_ids": ["TXN-64CAB8C7BF32", "TXN-E7D6A14A8A5F", "TXN-B55D9821222B"],
@@ -86,7 +107,7 @@ MOCK_ALERTS = [
     }
 ]
 
-MOCK_METRICS = [
+MOCK_METRICS: List[Dict[str, Any]] = [
     {"account_id": "ACC-MERCHANT-HUB", "pagerank": 0.1428, "component_id": 1, "is_hub": True, "alert_count": 0, "volume": 1250000.0},
     {"account_id": "ACC-UTILITY-BILLING", "pagerank": 0.1105, "component_id": 1, "is_hub": True, "alert_count": 0, "volume": 980000.0},
     {"account_id": "ACC-0105", "pagerank": 0.0512, "component_id": 4, "is_hub": False, "alert_count": 1, "volume": 420000.0},
@@ -95,95 +116,170 @@ MOCK_METRICS = [
     {"account_id": "ACC-0003", "pagerank": 0.0439, "component_id": 2, "is_hub": False, "alert_count": 1, "volume": 295000.0},
 ]
 
+
+def generate_interactive_network_html(alert: Dict[str, Any]) -> str:
+    """Generates an interactive PyVis / Vis.js directed graph visualization HTML."""
+    evidence = alert.get("evidence", {})
+    accounts = evidence.get("accounts", [])
+    edges = evidence.get("edges", [])
+
+    if PYVIS_AVAILABLE:
+        net = Network(height="460px", width="100%", directed=True, bgcolor="#0f172a", font_color="#f8fafc")
+        net.barnes_hut(gravity=-3000, central_gravity=0.3, spring_length=160, spring_strength=0.05)
+
+        for acc in accounts:
+            net.add_node(
+                acc,
+                label=acc,
+                title=f"Compte: {acc}\nRôle: Nœud du Cycle",
+                color={"background": "#0284c7", "border": "#38bdf8", "highlight": {"background": "#ef4444", "border": "#f87171"}},
+                shape="dot",
+                size=24,
+                font={"color": "#f8fafc", "size": 14, "face": "monospace"}
+            )
+
+        for edge in edges:
+            label = f"{edge['amount']:,.2f} {edge['currency']}"
+            title = f"Txn: {edge['transaction_id']}\nMontant: {label}\nDate: {edge['time']}"
+            net.add_edge(
+                edge["src"],
+                edge["dst"],
+                label=label,
+                title=title,
+                arrows="to",
+                color={"color": "#e11d48", "highlight": "#fb7185"},
+                width=2.5,
+                font={"color": "#fda4af", "size": 11, "align": "top"}
+            )
+        return net.generate_html()
+
+    # Fallback to direct Vis.js template
+    nodes_js = [{"id": acc, "label": acc, "shape": "dot", "size": 24, "color": {"background": "#0284c7", "border": "#38bdf8"}} for acc in accounts]
+    edges_js = [
+        {"from": e["src"], "to": e["dst"], "label": f"{e['amount']:,.0f} MAD", "arrows": "to", "color": "#e11d48", "font": {"color": "#fda4af", "size": 11}}
+        for e in edges
+    ]
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {{ margin: 0; background: #0f172a; font-family: sans-serif; }}
+        #network {{ width: 100%; height: 460px; }}
+    </style>
+</head>
+<body>
+    <div id="network"></div>
+    <script type="text/javascript">
+        var nodes = new vis.DataSet({json.dumps(nodes_js)});
+        var edges = new vis.DataSet({json.dumps(edges_js)});
+        var container = document.getElementById('network');
+        var data = {{ nodes: nodes, edges: edges }};
+        var options = {{
+            physics: {{ barnesHut: {{ springLength: 140, gravity: -2500 }} }},
+            nodes: {{ font: {{ color: '#f8fafc' }} }},
+            edges: {{ font: {{ align: 'top' }} }}
+        }};
+        new vis.Network(container, data, options);
+    </script>
+</body>
+</html>"""
+
+
 def render_dashboard():
-    if st is None:
-        print("[ERROR] Streamlit is not installed in the current Python environment.")
-        print("Please run the Next.js dashboard via 'npm --prefix dashboard dev' or install streamlit via 'pip install streamlit'.")
+    """Renders the Streamlit investigation dashboard."""
+    if not STREAMLIT_AVAILABLE:
+        print("[INFO] graph_network_dashboard.py is available as Livrable 4/4.")
+        print("[INFO] To run the interactive web GUI: pip install streamlit pyvis && streamlit run src/graph_network_dashboard.py")
+        print("[INFO] A production-grade Next.js 14 dashboard is also operational in dashboard/ (port 3000).")
         return
 
     st.set_page_config(
-        page_title="AML GraphShield Investigation Console",
+        page_title="AML GraphShield — Console d'Investigation",
         page_icon="🛡️",
         layout="wide",
         initial_sidebar_state="expanded"
     )
 
-    st.title("🛡️ AML GraphShield — Real-time Cycle Investigation")
-    st.caption("Temporal directed cycle detection across 10-minute sliding windows (Fallback Console)")
+    st.title("🛡️ AML GraphShield — Navigation Visuelle des Graphes")
+    st.caption("Livrable Ingénieur 4/4 : Interface interactive PyVis / Streamlit de détection de cycles AML")
 
-    # Sidebar
-    st.sidebar.header("Investigation Controls")
-    risk_filter = st.sidebar.selectbox("Filter Risk Level", ["ALL", "HIGH", "MEDIUM", "LOW"])
-    alerts = MOCK_ALERTS if risk_filter == "ALL" else [a for a in MOCK_ALERTS if a["risk_level"] == risk_filter]
+    st.sidebar.header("Filtres d'Investigation")
+    risk_filter = st.sidebar.selectbox("Niveau de Risque", ["TOUS", "CRITICAL", "HIGH", "MEDIUM"])
+    filtered_alerts = MOCK_ALERTS if risk_filter == "TOUS" else [a for a in MOCK_ALERTS if a["risk_level"] == risk_filter]
 
-    # Metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Active Cycle Alerts", len(alerts))
-    with col2:
-        total_vol = sum(a.get("total_amount", 0) for a in alerts)
-        st.metric("Flagged Volume", f"{total_vol:,.2f} MAD")
-    with col3:
-        high_risk = sum(1 for a in alerts if a["risk_level"] == "HIGH")
-        st.metric("High Risk Rings", high_risk)
-    with col4:
-        st.metric("Spark Windowing", "10m / 30s slide")
+    # KPIs
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Alertes Actives", len(filtered_alerts))
+    with c2:
+        total_vol = sum(a.get("total_amount", 0) for a in filtered_alerts)
+        st.metric("Volume Suspect", f"{total_vol:,.2f} MAD")
+    with c3:
+        crit_count = sum(1 for a in filtered_alerts if a["risk_level"] in ("CRITICAL", "HIGH"))
+        st.metric("Cycles Critiques", crit_count)
+    with c4:
+        st.metric("Moteur Streaming", "Spark 10m / 30s")
 
     st.divider()
 
-    # Main Workbench Tabs
-    tab1, tab2, tab3 = st.tabs(["🔍 Alert Forensics", "👥 Account Centrality (PageRank)", "📊 Telemetry"])
+    tab1, tab2, tab3 = st.tabs(["🔍 Investigation Visuelle (PyVis)", "📈 Centralité PageRank (AT-17)", "⚙️ Télémétrie"])
 
     with tab1:
-        if not alerts:
-            st.info("No alerts found matching filter.")
+        if not filtered_alerts:
+            st.info("Aucune alerte correspondant au filtre.")
         else:
-            alert_options = {f"{a['alert_id']} ({a['risk_level']} - {a.get('total_amount', 0):,.2f} MAD)": a for a in alerts}
-            selected_label = st.selectbox("Select Alert Dossier to Inspect", list(alert_options.keys()))
-            selected_alert = alert_options[selected_label]
+            alert_map = {f"{a['alert_id']} ({a['risk_level']} - {a['total_amount']:,.2f} MAD)": a for a in filtered_alerts}
+            chosen_key = st.selectbox("Sélectionner le dossier d'alerte :", list(alert_map.keys()))
+            alert = alert_map[chosen_key]
 
-            left_col, right_col = st.columns([1, 1])
+            col_left, col_right = st.columns([1.2, 1])
 
-            with left_col:
-                st.subheader(f"Cycle Topology: {selected_alert['cycle_id']}")
-                st.write(f"**Risk Level:** `{selected_alert['risk_level']}`")
-                st.write(f"**Rule:** `{selected_alert['rule_id']}` (v{selected_alert['rule_version']})")
-                st.write(f"**Detected:** `{selected_alert['first_detected_at']}`")
-                st.write(f"**Reason Codes:**")
-                for r in selected_alert["reason_codes"]:
-                    st.badge = st.markdown(f"- ✅ `{r}`")
+            with col_left:
+                st.subheader("Topologie Interactive du Cycle")
+                html_code = generate_interactive_network_html(alert)
+                components.html(html_code, height=480)
 
-                # ASCII/Text Directed Graph Representation
-                edges = selected_alert["evidence"]["edges"]
-                st.markdown("#### Directed Cycle Path:")
-                for i, edge in enumerate(edges):
-                    st.code(f"Step {i+1}: ({edge['src']}) ──[{edge['amount']:,.2f} {edge['currency']}]──> ({edge['dst']}) [Txn: {edge['transaction_id']}]")
+            with col_right:
+                st.subheader(f"Dossier Réglementaire SAR : {alert['alert_id']}")
+                st.write(f"**Identifiant du Cycle :** `{alert['cycle_id']}`")
+                st.write(f"**Règle :** `{alert['rule_id']}` (v{alert['rule_version']})")
+                st.write(f"**Montant Blanchi Total :** `{alert['total_amount']:,.2f} {alert['currency']}`")
+                st.write("**Codes de Motif :**")
+                for r in alert["reason_codes"]:
+                    st.markdown(f"- ✅ `{r}`")
 
-            with right_col:
-                st.subheader("Suspicious Activity Report (SAR)")
-                sar_json = json.dumps(selected_alert, indent=2)
-                st.json(selected_alert["evidence"])
                 st.download_button(
-                    label="📥 Export SAR Regulatory JSON",
-                    data=sar_json,
-                    file_name=f"sar_{selected_alert['alert_id']}.json",
+                    label="📥 Télécharger SAR JSON (Déclaration de Soupçon)",
+                    data=json.dumps(alert, indent=2),
+                    file_name=f"sar_{alert['alert_id']}.json",
                     mime="application/json"
                 )
 
     with tab2:
-        st.subheader("Graph Centrality Distribution (AT-17 Hub Analysis)")
-        st.markdown(
-            "PageRank scores (`resetProbability=0.15`, `maxIter=10`) separate high-volume utility/merchant hubs "
-            "from localized money mule cycles."
-        )
+        st.subheader("Isolation des Carrefours Marchands (PageRank AT-17)")
+        st.markdown(r"Les comptes marchands à fort trafic ont un score PageRank élevé ($PR \gg 1/|V|$) qui les discrimine des mules criminelles.")
         st.table(MOCK_METRICS)
 
     with tab3:
-        st.subheader("Delta Lake & Streaming Pipeline Status")
-        st.markdown("- **Engine**: Spark 3.5.0 + GraphFrames 0.8.4")
-        st.markdown("- **Watermark**: 120s Event Horizon ($W = H - 120s$)")
-        st.markdown("- **Delta Tables**: 10 tables initialized under `data/delta`")
-        st.markdown("- **Kafka Bus**: KRaft broker (No Zookeeper required)")
+        st.subheader("État du Système Lakehouse & Streaming")
+        st.markdown("- **Moteur** : Apache Spark Structured Streaming 3.5.1 + GraphFrames 0.8.4")
+        st.markdown("- **Bus Kafka** : Mode KRaft (sans ZooKeeper)")
+        st.markdown("- **Couche Stockage** : 10 Tables Delta Lake sous `data/delta`")
+        st.markdown("- **Interface Production** : Next.js 14 App Router (port 3000)")
+
 
 if __name__ == "__main__":
-    render_dashboard()
+    parser = argparse.ArgumentParser(description="AML Graph Network Dashboard (PyVis / Streamlit)")
+    parser.add_argument("--export-html", action="store_true", help="Export standalone interactive HTML visualization")
+    args = parser.parse_args()
+
+    if args.export_html:
+        html = generate_interactive_network_html(MOCK_ALERTS[0])
+        out_file = Path("docs/graph_network_visualization.html")
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        out_file.write_text(html, encoding="utf-8")
+        print(f"[SUCCESS] Standalone PyVis HTML graph exported to {out_file.resolve()}")
+    else:
+        render_dashboard()
