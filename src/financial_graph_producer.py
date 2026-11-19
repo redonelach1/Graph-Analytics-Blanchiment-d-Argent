@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import random
 import sys
 import time
@@ -179,9 +180,9 @@ def main():
         default="normal",
         help="Generation / replay mode"
     )
-    parser.add_argument("--rate", type=float, default=None, help="Transactions per second (rate limit)")
+    parser.add_argument("--rate", "--tps", dest="rate", type=float, default=None, help="Transactions per second (rate limit)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for repeatability")
-    parser.add_argument("--count", type=int, default=10, help="Total transactions to emit")
+    parser.add_argument("--count", type=int, default=1000, help="Total transactions to emit (0 for infinite)")
     parser.add_argument("--fixture", type=str, default=None, help="Path to fixture JSON (for replay mode)")
     parser.add_argument(
         "--amlsim-dir",
@@ -202,7 +203,7 @@ def main():
 
     sink = None
     if not args.dry_run:
-        bootstrap = config.get("kafka", {}).get("bootstrap_servers", "localhost:9092")
+        bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", config.get("kafka", {}).get("bootstrap_servers", "kafka:9094"))
         topic = config.get("kafka", {}).get("topics", {}).get("transactions", "financial-transactions")
         try:
             sink = KafkaSink(bootstrap, topic)
@@ -244,7 +245,7 @@ def main():
                     time.sleep(delay)
 
         elif args.mode == "triangle":
-            while emitted < args.count:
+            while args.count <= 0 or emitted < args.count:
                 cycle_txns = generator.generate_triangle()
                 for txn in cycle_txns:
                     _emit_record(txn, sink, out_file, args.dry_run)
@@ -253,9 +254,9 @@ def main():
                         time.sleep(delay)
 
         elif args.mode == "mixed":
-            while emitted < args.count:
+            while args.count <= 0 or emitted < args.count:
                 # 90% normal, 10% triangle
-                if random.random() < 0.10 and (emitted + 3 <= args.count):
+                if random.random() < 0.10 and (args.count <= 0 or emitted + 3 <= args.count):
                     cycle_txns = generator.generate_triangle()
                     for txn in cycle_txns:
                         _emit_record(txn, sink, out_file, args.dry_run)
@@ -270,7 +271,7 @@ def main():
                         time.sleep(delay)
 
         else:  # normal
-            while emitted < args.count:
+            while args.count <= 0 or emitted < args.count:
                 txn = generator.generate_normal()
                 _emit_record(txn, sink, out_file, args.dry_run)
                 emitted += 1

@@ -324,7 +324,10 @@ def init_tables(config: Dict[str, Any], spark: Optional[Any] = None) -> None:
 
     for table_name, meta in TABLE_METADATA.items():
         table_path = Path(tables_cfg.get(table_name, delta_base / table_name))
-        table_path.mkdir(parents=True, exist_ok=True)
+        try:
+            table_path.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.debug(f"Direct directory creation skipped for {table_path}: {e}")
 
         partitions = meta["partitions"]
         ddl = meta["ddl"].strip().replace("{table}", f"`{table_name}`")
@@ -345,11 +348,14 @@ def init_tables(config: Dict[str, Any], spark: Optional[Any] = None) -> None:
                 logger.warning(f"       -> Note on Spark Delta init for {table_name}: {e}")
 
     # Write DDL documentation file
-    ddl_file = delta_base / "delta_schemas.sql"
-    with open(ddl_file, "w", encoding="utf-8") as f:
-        for table_name, meta in TABLE_METADATA.items():
-            f.write(meta["ddl"].strip().replace("{table}", f"`{table_name}`") + ";\n\n")
-    logger.info(f"Saved complete Delta SQL DDL file to: {ddl_file}")
+    try:
+        ddl_file = delta_base / "delta_schemas.sql"
+        with open(ddl_file, "w", encoding="utf-8") as f:
+            for table_name, meta in TABLE_METADATA.items():
+                f.write(meta["ddl"].strip().replace("{table}", f"`{table_name}`") + ";\n\n")
+        logger.info(f"Saved complete Delta SQL DDL file to: {ddl_file}")
+    except OSError as e:
+        logger.debug(f"Could not write DDL file {delta_base / 'delta_schemas.sql'}: {e}")
 
 
 def reset_tables(config: Dict[str, Any], force: bool = False) -> None:

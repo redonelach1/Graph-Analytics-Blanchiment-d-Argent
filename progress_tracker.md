@@ -21,6 +21,7 @@
 | 6 | Enrichment Pipeline | 🟢 Complete | 2026-11-02 | 2026-11-02 | PageRank, connected components, separate checkpoints |
 | 7 | Investigation Dashboard | 🟢 Complete | 2026-11-02 | 2026-11-02 | Next.js 14 + shadcn/ui premium UI + Python fallback |
 | 8 | Benchmarks & Handover | 🟢 Complete | 2026-11-02 | 2026-11-02 | AT-21 & AT-22 verified; full documentation suite |
+| 9 | Academic LaTeX & Markdown Reports | 🟢 Complete | 2026-11-17 | 2026-11-17 | Modular LaTeX project in `report/`, 15 image/screenshot placeholders, BibTeX references, Overleaf ready |
 
 **Legend:** 🔴 Not Started · 🟡 In Progress · 🟢 Complete · 🔵 Blocked · ⚪ Skipped
 
@@ -288,8 +289,9 @@
 
 ### Notes
 - Upgraded dashboard frontend to Next.js 14 + shadcn/ui for enterprise-grade visuals and interactivity.
+- Redesigned and refined the entire dashboard UI to an institutional, high-signal, clean aesthetic (less AI slopped, subtle borders, high contrast, crisp vector directed graph canvas, SAR export).
 - Preserved `src/graph_network_dashboard.py` as Python fallback.
-- Successfully built and validated all dynamic and static Next.js routes.
+- Successfully built and validated all dynamic and static Next.js routes (`npm run build` passing with 0 errors).
 
 ---
 
@@ -311,7 +313,9 @@
 - [x] Dataset integration tests
   - [x] DS-AT-01 through DS-AT-10 all pass (`tests/test_dataset_adapter.py`)
 - [x] Complete Documentation Suite
+  - [x] Official Academic Master/Engineering Report (`RAPPORT_DE_PROJET_AML_GRAPH_ANALYTICS.md`)
   - [x] Root README.md with system architecture, quickstart, and CLI guide
+  - [x] Comprehensive Walkthrough and User Guide (`WALKTHROUGH.md`)
   - [x] Runbook (`docs/runbook.md`) with operations, recovery, and SAR export procedures
   - [x] Limitations document (`docs/limitations.md`) with trade-offs and constraints
   - [x] Performance report (`docs/benchmark_report.md`)

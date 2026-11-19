@@ -113,6 +113,8 @@ def validate_transaction(
     """
     if ingest_time is None:
         ingest_time = datetime.now(timezone.utc)
+    elif getattr(ingest_time, "tzinfo", None) is None:
+        ingest_time = ingest_time.replace(tzinfo=timezone.utc)
     if supported_currencies is None:
         supported_currencies = ["MAD"]
 
@@ -185,6 +187,10 @@ def validate_transaction(
         return ValidationOutcome.INVALID, reasons, None
 
     # 7. Check future event skew
+    if getattr(event_dt, "tzinfo", None) is None:
+        event_dt = event_dt.replace(tzinfo=timezone.utc)
+    if getattr(ingest_time, "tzinfo", None) is None:
+        ingest_time = ingest_time.replace(tzinfo=timezone.utc)
     time_diff = (event_dt - ingest_time).total_seconds()
     if time_diff > future_skew_seconds:
         return (
