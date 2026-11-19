@@ -1,0 +1,40 @@
+% ==============================================================================
+% ANNEXE C : GUIDE D'EXÉCUTION DES TESTS ET BENCHMARKS
+% ==============================================================================
+
+\chapter{Guide d'Exécution des Tests et Benchmarks}
+\label{app:tests}
+
+Cette annexe recense les commandes unifiées permettant de reproduire l'intégralité des validations expérimentales et des tests d'acceptation.
+
+\section{Exécution des tests de fumée automatisés (Smoke Tests)}
+
+Pour valider l'intégrité de la chaîne de détection sur l'échantillon de données sans dépendance externe :
+\begin{lstlisting}[language=bash, caption={Commande d'exécution du test de fumée}, label={lst:cmd_smoke}]
+python scripts/smoke_test.py
+\end{lstlisting}
+
+\section{Lancement de la suite des 22 tests d'acceptation}
+
+La suite complète de tests de conformité fonctionnelle s'exécute via \texttt{pytest} :
+\begin{lstlisting}[language=bash, caption={Exécution de la suite de tests d'acceptation unitaire}, label={lst:cmd_tests}]
+pytest tests/ -v -s
+\end{lstlisting}
+
+\section{Reproduction de la campagne de benchmarks (AT-22)}
+
+Pour mesurer le débit effectif et la latence au 95\textsuperscript{e} centile sous les trois profils de charge (L1, L2, L3) :
+\begin{lstlisting}[language=bash, caption={Commande d'exécution du benchmark de performance}, label={lst:cmd_benchmark}]
+python scripts/run_benchmarks.py --levels L1,L2,L3 --output docs/benchmark_report.md
+\end{lstlisting}
+
+\section{Démarrage de l'interface d'investigation Next.js}
+
+Pour compiler et servir le cockpit forensique de conformité :
+\begin{lstlisting}[language=bash, caption={Commandes d'installation et de lancement du Dashboard}, label={lst:cmd_dashboard}]
+cd dashboard
+npm install
+npm run build
+npm run start
+\end{lstlisting}
+L'interface est alors accessible à l'adresse locale \url{http://localhost:3000}.

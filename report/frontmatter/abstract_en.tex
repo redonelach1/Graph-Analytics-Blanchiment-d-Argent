@@ -1,0 +1,23 @@
+% ==============================================================================
+% EXECUTIVE SUMMARY (ENGLISH)
+% ==============================================================================
+
+\chapter*{Executive Summary}
+\addcontentsline{toc}{chapter}{Executive Summary}
+
+According to joint estimates from the United Nations Office on Drugs and Crime (UNODC) and the International Monetary Fund (IMF), global money laundering accounts for $2\%$ to $5\%$ of worldwide Gross Domestic Product, representing nearly $\$2\text{ trillion}$ illicitly transferred through international financial channels annually. Confronted with the exponential sophistication of financial crime syndicates, legacy transaction monitoring systems based on static relational thresholds and siloed tabular rules generate false-positive rates exceeding $90\%$, while failing fundamentally to identify structural layering and circular smurfing topologies.
+
+This engineering thesis presents the architecture, distributed implementation, and rigorous experimental validation of a real-time graph analytics platform tailored for automated Anti-Money Laundering (AML) ring detection. Built upon an enterprise-grade \textbf{Streaming Lakehouse} paradigm, the platform integrates:
+\begin{enumerate}
+    \item A fault-tolerant, high-throughput \textbf{Apache Kafka 3.5} messaging backbone running the ZooKeeper-less \textbf{KRaft} consensus protocol, sustaining streaming ingestion rates exceeding $500$ transactions per second (TPS);
+    \item A distributed stream processing pipeline orchestrated by \textbf{Apache Spark 3.5.0 (Structured Streaming)} maintaining synchronized $10$-minute sliding windows ($30$-second slide) backed by a deterministic $120$-second event-time watermark;
+    \item \textbf{GraphFrames 0.8.4} distributed graph mining routines executing Cypher-like motif matching queries to detect directed $3$-account closed loops ($A \to B \to C \to A$) while eliminating rotational permutations and verifying currency and amount conservation invariants;
+    \item An ACID-compliant \textbf{Delta Lake 3.2.0} storage architecture enforcing deterministic cryptographic deduplication via canonical SHA-256 identities, idempotent state restoration, and automated schema quarantine;
+    \item Distributed \textbf{PageRank ($\alpha=0.85$)} and \textbf{Connected Components} algorithms establishing mathematical guarantees against false alarms on high-volume legitimate commercial settlement hubs (Acceptance Test AT-17);
+    \item A forensic investigation cockpit engineered with \textbf{Next.js 14}, \textbf{Tailwind CSS}, and \textbf{shadcn/ui}, featuring interactive directed vector topologies, an edge transaction inspector, and automated Suspicious Activity Report (SAR) JSON exports.
+\end{enumerate}
+
+The platform's operational validity is proven across \textbf{all 22 formal acceptance criteria (AT-01 to AT-22)} and validated with strict zero-label leakage on the certified \textbf{IBM AMLSim} benchmark dataset ($20,000$ accounts, $117,805$ transactions, $200$ injected cycle topologies). Stress benchmarks demonstrate a P95 batch processing latency of less than $20\text{ ms}$ under burst loads of $500\text{ TPS}$, establishing the enterprise readiness of the proposed pipeline.
+
+\vspace{0.8cm}
+\noindent\textbf{Keywords:} Anti-Money Laundering (AML), Distributed Graph Analytics, GraphFrames, Apache Spark Streaming, Apache Kafka, Delta Lake, Cycle Motifs, PageRank, Streaming Lakehouse, Next.js Forensic Cockpit.

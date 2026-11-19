@@ -1,0 +1,23 @@
+% ==============================================================================
+% RÉSUMÉ EXÉCUTIF (FRANÇAIS)
+% ==============================================================================
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Le blanchiment de capitaux représente, selon les estimations concordantes de l'Office des Nations Unies contre la Drogue et le Crime (ONUDC) et du Fonds Monétaire International (FMI), entre $2\,\%$ et $5\,\%$ du Produit Intérieur Brut mondial, soit près de $2\,000$ milliards de dollars détournés annuellement à travers des circuits financiers illicites. Face à la sophistication croissante des organisations criminelles, les systèmes traditionnels de surveillance des transactions basés sur des règles relationnelles statiques et des alertes tabulaires échouent massivement, affichant des taux de faux positifs supérieurs à $90\,\%$ tout en demeurant aveugles aux mécanismes d'empilement (\textit{layering}) et de dispersion fractionnée (\textit{smurfing}).
+
+Ce mémoire présente la conception, l'implémentation et la validation expérimentale approfondie d'une plateforme d'analytique de graphes distribuée et temps réel dédiée à la détection proactive de réseaux de blanchiment d'argent. Fondée sur le paradigme moderne du \textbf{Streaming Lakehouse}, notre solution articule de manière synergique :
+\begin{enumerate}
+    \item Un bus de messages distribué à haute disponibilité fondé sur \textbf{Apache Kafka 3.5} en mode consensus \textbf{KRaft}, ingérant des flux continus de transactions financières à des débits soutenus dépassant $500$ transactions par seconde (TPS) ;
+    \item Un moteur de calcul distribué \textbf{Apache Spark 3.5.0 (Structured Streaming)} maintenant des fenêtres temporelles glissantes strictes de $10$ minutes (pas de glissement de $30$ secondes) adossées à un filigrane événementiel (\textit{watermark}) déterministe de $120$ secondes ;
+    \item La bibliothèque d'analyse de graphes distribués \textbf{GraphFrames 0.8.4} exécutant en micro-lots le formalisme du \textit{Motif Finding} pour isoler les cycles orientés fermés à trois nœuds ($A \to B \to C \to A$) tout en éliminant les symétries par rotation et en contrôlant les ratios de conservation des montants ;
+    \item Une couche de persistance transactionnelle ACID \textbf{Delta Lake 3.2.0} garantissant l'idempotence des alertes, la traçabilité médico-légale et la ségrégation des transactions corrompues dans des tables de quarantaine ;
+    \item Un module d'enrichissement spectral combinant \textbf{PageRank ($\alpha=0.85$)} et \textbf{Composantes Connexes}, apportant la démonstration formelle de la séparation entre carrefours marchands légitimes et comptes mules criminels ;
+    \item Un poste d'investigation médico-légale développé en \textbf{Next.js 14}, \textbf{Tailwind CSS} et \textbf{shadcn/ui}, intégrant un moteur vectoriel de rendu de cycles orientés et l'exportation normalisée des déclarations de soupçon (SAR -- \textit{Suspicious Activity Report}).
+\end{enumerate}
+
+La rigueur de la solution est certifiée par la validation intégrale des \textbf{22 tests d'acceptation fonctionnelle (AT-01 à AT-22)} et par l'étanchéité absolue (\textit{Zero Label Leakage}) vérifiée sur le jeu de données de référence \textbf{IBM AMLSim} ($20\,000$ comptes, $117\,805$ transactions, $200$ boucles de fraude). Les campagnes de benchmarking démontrent une latence sub-seconde ($P95 < 20\,\text{ms}$) sous charge de pointe, affirmant la viabilité de cette architecture pour l'industrie bancaire.
+
+\vspace{0.8cm}
+\noindent\textbf{Mots-clés :} Blanchiment de Capitaux, Analyse de Graphes Distribués, GraphFrames, Apache Spark Streaming, Apache Kafka, Delta Lake, Motifs Cycliques, PageRank, Streaming Lakehouse, Cockpit Forensique Next.js.

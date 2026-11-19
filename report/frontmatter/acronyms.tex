@@ -1,0 +1,35 @@
+% ==============================================================================
+% GLOSSAIRE ET LISTE DES ACRONYMES
+% ==============================================================================
+
+\chapter*{Liste des Acronymes et Abréviations}
+\addcontentsline{toc}{chapter}{Liste des Acronymes et Abréviations}
+
+\begin{table}[htbp]
+\centering
+\small
+\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\textwidth}{l p{4.8cm} X}
+\toprule
+\textbf{Acronyme} & \textbf{Terme Intégral} & \textbf{Signification Métier / Rôle Technique} \\
+\midrule
+\textbf{ACID} & \textit{Atomicity, Consistency, Isolation, Durability} & Propriétés fondamentales garantissant la fiabilité des transactions Delta Lake. \\
+\textbf{AML} & \textit{Anti-Money Laundering} & Lutte contre le blanchiment de capitaux et le financement du terrorisme (LCB-FT). \\
+\textbf{API} & \textit{Application Programming Interface} & Interface logicielle de communication inter-applicative (REST / Route Handlers). \\
+\textbf{CDC} & \textit{Change Data Capture} & Détection et réplication continue des deltas de données au fil de l'eau. \\
+\textbf{DAG} & \textit{Directed Acyclic Graph} & Graphe Orienté Acyclique modélisant le plan d'exécution physique sous Spark. \\
+\textbf{DSL} & \textit{Domain Specific Language} & Langage dédié à un domaine (ex. formalisme de motifs Cypher dans GraphFrames). \\
+\textbf{FATF / GAFI} & \textit{Financial Action Task Force} & Groupe d'Action Financière internationale émettant les recommandations de LCB-FT. \\
+\textbf{FSM} & \textit{Finite State Machine} & Machine à états finis régissant la validation et l'admission des transactions. \\
+\textbf{GNN} & \textit{Graph Neural Network} & Réseau de neurones artificiels opérant directement sur la topologie des graphes. \\
+\textbf{KRaft} & \textit{Kafka Raft Metadata mode} & Protocole de consensus interne de Kafka éliminant l'usage de ZooKeeper. \\
+\textbf{KYC} & \textit{Know Your Customer} & Diligences bancaires d'identification et de vérification d'identité client. \\
+\textbf{MAD} & \textit{Moroccan Dirham} & Dirham marocain, devise de référence exploitée dans le cadre expérimental. \\
+\textbf{ONUDC / UNODC} & Office des Nations Unies contre la Drogue et le Crime & Organe onusien évaluant les volumes mondiaux de criminalité financière. \\
+\textbf{RDBMS / SGBDR} & Système de Gestion de Bases de Données & Modèle tabulaire conventionnel inadapté à l'analyse de chemins récursifs. \\
+\textbf{SAR} & \textit{Suspicious Activity Report} & Déclaration officielle d'opération financière suspecte soumise à la CRF. \\
+\textbf{TPS} & \textit{Transactions Per Second} & Débit instantané d'ingestion et d'évaluation du pipeline événementiel. \\
+\textbf{UTRF} & Unité de Traitement du Renseignement Financier & Cellule de renseignement financier nationale (Royaume du Maroc). \\
+\bottomrule
+\end{tabularx}
+\end{table}

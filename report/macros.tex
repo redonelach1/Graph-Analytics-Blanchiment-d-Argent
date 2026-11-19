@@ -1,0 +1,163 @@
+% ==============================================================================
+% MACROS, PACKAGES COMPLÉMENTAIRES ET COMMANDES PERSONNALISÉES (ÉDITION COMPACTE)
+% ==============================================================================
+
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows.meta,positioning,calc,fit,backgrounds,decorations.pathreplacing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{hyperref}
+\usepackage{csquotes}
+\usepackage{titlesec}
+
+% Palette de couleurs institutionnelle
+\definecolor{EnsamBlue}{RGB}{21, 60, 85}        % Bleu Officiel ENSAM
+\definecolor{primaryNavy}{RGB}{15, 23, 42}      % Slate 900
+\definecolor{secondaryBlue}{RGB}{30, 58, 138}   % Blue 900
+\definecolor{accentIndigo}{RGB}{79, 70, 229}    % Indigo 600
+\definecolor{crimsonRisk}{RGB}{185, 28, 28}     % Red 700
+\definecolor{amberWarning}{RGB}{217, 119, 6}    % Amber 600
+\definecolor{emeraldSuccess}{RGB}{5, 150, 105}  % Emerald 600
+\definecolor{lightSlate}{RGB}{248, 250, 252}    % Slate 50
+\definecolor{borderSlate}{RGB}{203, 213, 225}   % Slate 300
+\definecolor{codeBackground}{RGB}{245, 247, 250}% Code BG
+\definecolor{codeComment}{RGB}{100, 116, 139}   % Slate 500
+\definecolor{codeString}{RGB}{13, 148, 136}     % Teal 600
+\definecolor{codeKeyword}{RGB}{67, 56, 202}     % Indigo 700
+
+% Configuration compacte des titres académiques (Standard Mémoire d'Ingénieur)
+\titleformat{\chapter}[hang]
+  {\normalfont\Large\bfseries\color{primaryNavy}}
+  {\thechapter.\ }
+  {0pt}
+  {}
+\titlespacing*{\chapter}{0pt}{-10pt}{12pt}
+\titlespacing*{\section}{0pt}{10pt}{4pt}
+\titlespacing*{\subsection}{0pt}{8pt}{3pt}
+
+% Configuration des hyperliens
+\hypersetup{
+    colorlinks=true,
+    linkcolor=secondaryBlue,
+    citecolor=accentIndigo,
+    urlcolor=secondaryBlue,
+    filecolor=crimsonRisk,
+    bookmarksnumbered=true,
+    pdfstartview={FitH}
+}
+
+% Opérateurs mathématiques personnalisés
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\newcommand{\inDeg}{\operatorname{deg}^-}
+\newcommand{\outDeg}{\operatorname{deg}^+}
+\newcommand{\cycleID}{\texttt{cycle\_id}}
+\newcommand{\alertID}{\texttt{alert\_id}}
+\newcommand{\txnID}{\texttt{transaction\_id}}
+
+% Boîtes d'avertissement et de remarques académiques compactes
+\newtcolorbox{academicnote}[1][Remarque Académique]{
+    colback=lightSlate,
+    colframe=secondaryBlue,
+    coltitle=white,
+    fonttitle=\bfseries\footnotesize,
+    title=#1,
+    arc=1.5mm,
+    boxrule=0.75pt,
+    left=2.5mm,
+    right=2.5mm,
+    top=1.5mm,
+    bottom=1.5mm
+}
+
+\newtcolorbox{regulatoryalert}[1][Exigence Réglementaire (GAFI / UTRF)]{
+    colback=lightSlate,
+    colframe=crimsonRisk,
+    coltitle=white,
+    fonttitle=\bfseries\footnotesize,
+    title=#1,
+    arc=1.5mm,
+    boxrule=0.75pt,
+    left=2.5mm,
+    right=2.5mm,
+    top=1.5mm,
+    bottom=1.5mm
+}
+
+% Configuration des listings de code source compacte
+\lstset{
+    backgroundcolor=\color{codeBackground},
+    basicstyle=\ttfamily\scriptsize,
+    breaklines=true,
+    breakatwhitespace=true,
+    captionpos=b,
+    commentstyle=\color{codeComment}\itshape,
+    keywordstyle=\color{codeKeyword}\bfseries,
+    stringstyle=\color{codeString},
+    numbers=left,
+    numberstyle=\tiny\color{codeComment},
+    numbersep=5pt,
+    frame=single,
+    framerule=0.4pt,
+    rulecolor=\color{borderSlate},
+    tabsize=2,
+    showstringspaces=false,
+    keepspaces=true
+}
+
+\lstdefinelanguage{JSON}{
+    keywords={true,false,null},
+    morestring=[b]",
+    morecomment=[l]{//}
+}
+
+\lstdefinelanguage{YAML}{
+    keywords={true,false,null,yes,no},
+    morestring=[b]",
+    morecomment=[l]{\#}
+}
+
+% Commande unifiée d'insertion de figure pleine largeur
+\newcommand{\singlefigure}[4][0.92\linewidth]{%
+    \begin{figure}[htbp]
+        \centering
+        \includegraphics[width=#1]{#2}%
+        \caption{#3}%
+        \label{#4}%
+    \end{figure}
+}
+
+% Commande d'insertion de 2 captures côte-à-côte (hauteur 4.4cm)
+% Usage : \screenshotpaired[hauteur]{img1}{caption1}{img2}{caption2}{Main caption}{Main label}
+\newcommand{\screenshotpaired}[7][4.4cm]{%
+    \begin{figure}[htbp]
+        \centering
+        \begin{subfigure}[b]{0.485\textwidth}
+            \centering
+            \includegraphics[width=\linewidth,height=#1,keepaspectratio]{#2}
+            \caption{#3}
+        \end{subfigure}\hfill
+        \begin{subfigure}[b]{0.485\textwidth}
+            \centering
+            \includegraphics[width=\linewidth,height=#1,keepaspectratio]{#4}
+            \caption{#5}
+        \end{subfigure}
+        \vspace{1mm}
+        \caption{#6}
+        \label{#7}
+    \end{figure}
+}

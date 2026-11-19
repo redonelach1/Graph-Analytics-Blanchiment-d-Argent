@@ -1,0 +1,33 @@
+% ==============================================================================
+% CHAPITRE 7 : CONCLUSION GÉNÉRALE & PERSPECTIVES
+% ==============================================================================
+
+\chapter{Conclusion Générale et Perspectives}
+\label{ch:conclusion}
+
+\section{Bilan des réalisations}
+
+Ce projet a concrétisé la mise en œuvre d'une architecture Big Data distribuée et temps réel pour la détection de réseaux de blanchiment d'argent par analyse de graphes. En substituant aux jointures relationnelles traditionnelles une approche fondée sur le streaming distribué et le stockage Lakehouse, nous avons atteint les résultats suivants :
+\begin{enumerate}
+    \item \textbf{Performance et latence sub-seconde :} L'articulation d'Apache Kafka en mode KRaft, d'Apache Spark Structured Streaming, de GraphFrames et de Delta Lake permet d'extraire des sous-graphes cycliques avec un temps de traitement inférieur à $20\text{ ms}$ sous une charge continue de $500\text{ transactions/seconde}$ ;
+    \item \textbf{Élimination rigoureuse des doublons :} La définition d'un hachage canonique invariant par rotation d'arêtes et l'usage de la commande \texttt{MERGE INTO} dans Delta Lake garantissent l'absence de toute alerte redondante malgré les 20 fenêtres glissantes imbriquées (validation d'AT-02 et AT-08) ;
+    \item \textbf{Discrimination des marchands légitimes :} Le calcul périodique du PageRank isole les comptes marchands à fort degré entrant et élimine $100\,\%$ des faux positifs commerciaux (validation d'AT-17) ;
+    \item \textbf{Outil d'investigation médico-légale :} L'interface développée en Next.js 14 et shadcn/ui procure aux analystes bancaires un visualiseur de graphe vectoriel interactif et permet la génération en un clic de déclarations de soupçon (SAR JSON) conformes aux normes réglementaires.
+\end{enumerate}
+
+\section{Limites actuelles du système}
+
+Deux limites principales doivent être soulignées avec objectivité :
+\begin{itemize}
+    \item \textbf{Restriction aux cycles d'ordre 3 ($k=3$) :} L'extraction de motifs en streaming se focalise sur les triangles transactionnels. L'extension en ligne à des boucles de longueur supérieure ($k \ge 5$) se heurte à une complexité combinatoire $\mathcal{O}(|\mathcal{V}|^k)$, qui nécessiterait des algorithmes d'échantillonnage aléatoire ou des marches aléatoires ;
+    \item \textbf{Hypothèse mono-devise :} Le modèle traite exclusivement les flux libellés en Dirhams marocains (\texttt{MAD}) pour écarter le bruit lié aux fluctuations de change en l'absence de connecteur en temps réel vers les cours officiels de Bank Al-Maghrib.
+\end{itemize}
+
+\section{Perspectives d'évolution}
+
+Plusieurs pistes d'amélioration se dégagent pour poursuivre ce travail :
+\begin{itemize}
+    \item \textbf{Modèles d'apprentissage sur graphes (T-GNNs) :} L'intégration de réseaux de neurones sur graphes temporels (tels que \textit{DyRep} ou \textit{EvolveGCN}) permettrait d'apprendre des représentations vectorielles dynamiques et de détecter de nouvelles formes de dispersion sans règles manuelles rigides ;
+    \item \textbf{Déploiement sur cluster Kubernetes :} Orchestration conteneurisée via le \textbf{Spark Operator sur Kubernetes} avec stockage élastique sur du cloud objet (Amazon S3 ou Google Cloud Storage) et mise à l'échelle automatique selon le débit de Kafka ;
+    \item \textbf{Résolution d'entités multicanale :} Enrichir le graphe avec des données de géolocalisation IP et d'empreintes d'appareils pour relier des comptes multiples détenus par un même bénéficiaire effectif.
+\end{itemize}

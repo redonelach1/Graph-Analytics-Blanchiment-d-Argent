@@ -1,0 +1,99 @@
+% ==============================================================================
+% RAPPORT DE PROJET ACADÉMIQUE : DÉTECTION EN TEMPS RÉEL DU BLANCHIMENT D'ARGENT
+% Fichier Principal : main.tex (Format Académique Compact ~30 pages)
+% ==============================================================================
+
+\documentclass[11pt,a4paper,oneside]{report}
+
+% Encodage et typographie
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Interligne académique compact et équilibré
+\linespread{1.12}
+
+% Support linguistique (Français par défaut, Anglais secondaire)
+\usepackage[english,french]{babel}
+
+% Mise en page et géométrie
+\usepackage[
+    top=2.2cm,
+    bottom=2.2cm,
+    left=2.5cm,
+    right=2.2cm,
+    headheight=14pt,
+    footskip=1.1cm
+]{geometry}
+
+% En-têtes et pieds de page académiques
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\scshape\nouppercase{\leftmark}}
+\fancyhead[R]{\small\thepage}
+\fancyfoot[C]{\footnotesize\color{gray} Mini-Projet 17 -- AML Distributed Graph Analytics}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.2pt}
+
+% Style pour les pages d'ouverture de chapitre
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \fancyfoot[C]{\small\thepage}
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+
+% Chargement des métadonnées et macros
+\input{metadata.tex}
+\input{macros.tex}
+
+\begin{document}
+
+% ==============================================================================
+% PARTIE LIMINAIRE (FRONTMATTER)
+% ==============================================================================
+\pagenumbering{roman}
+
+% Page de garde officielle
+\input{frontmatter/titlepage.tex}
+
+% Résumé (Français) & Abstract (Anglais) sur une seule page
+\input{frontmatter/abstract_bilingual.tex}
+
+% Table des matières compacte
+\tableofcontents
+\newpage
+
+% Liste des acronymes
+\input{frontmatter/acronyms.tex}
+\newpage
+
+% ==============================================================================
+% CORPS PRINCIPAL DU MÉMOIRE (MAINMATTER)
+% ==============================================================================
+\pagenumbering{arabic}
+
+\input{chapters/ch1_introduction.tex}
+\input{chapters/ch2_state_of_art.tex}
+\input{chapters/ch3_system_architecture.tex}
+\input{chapters/ch4_streaming_pipeline.tex}
+\input{chapters/ch5_investigation_dashboard.tex}
+\input{chapters/ch6_experimental_results.tex}
+\input{chapters/ch7_conclusion.tex}
+
+% ==============================================================================
+% RÉFÉRENCES BIBLIOGRAPHIQUES
+% ==============================================================================
+\bibliographystyle{plain}
+\bibliography{biblio/references}
+\addcontentsline{toc}{chapter}{Références Bibliographiques}
+
+% ==============================================================================
+% ANNEXES TECHNIQUES (APPENDICES)
+% ==============================================================================
+\appendix
+\input{appendices/annexes.tex}
+
+\end{document}

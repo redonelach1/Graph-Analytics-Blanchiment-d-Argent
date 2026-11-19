@@ -1,0 +1,85 @@
+% ==============================================================================
+% ANNEXES TECHNIQUES UNIFIÉES
+% ==============================================================================
+
+\chapter{Annexes Techniques}
+\label{ch:annexes}
+
+\section{Schémas DDL SQL des Tables Delta Lake}
+\label{app:schemas}
+
+\begin{lstlisting}[language=SQL, caption={Définitions DDL des tables \texttt{silver\_transactions} et \texttt{fraud\_alerts}}, label={lst:ddl_tables}]
+-- Table Silver des transactions validees et dedupliquees
+CREATE TABLE IF NOT EXISTS silver_transactions (
+    transaction_id STRING NOT NULL, source_account STRING NOT NULL,
+    target_account STRING NOT NULL, montant DOUBLE NOT NULL,
+    devise STRING NOT NULL, type_operation STRING NOT NULL,
+    event_timestamp TIMESTAMP NOT NULL, payload_hash STRING NOT NULL,
+    ingest_timestamp TIMESTAMP NOT NULL, event_date DATE NOT NULL
+) USING delta PARTITIONED BY (event_date);
+
+-- Table Gold des alertes de boucles frauduleuses
+CREATE TABLE IF NOT EXISTS fraud_alerts (
+    alert_id STRING NOT NULL, cycle_id STRING NOT NULL,
+    rule_id STRING NOT NULL, rule_version INT NOT NULL,
+    risk_level STRING NOT NULL, reason_codes ARRAY<STRING> NOT NULL,
+    account_ids ARRAY<STRING> NOT NULL, transaction_ids ARRAY<STRING> NOT NULL,
+    total_amount DOUBLE NOT NULL, currency STRING NOT NULL,
+    first_detected_at TIMESTAMP NOT NULL, event_window_start TIMESTAMP NOT NULL,
+    event_window_end TIMESTAMP NOT NULL, evidence_json STRING NOT NULL, alert_date DATE NOT NULL
+) USING delta PARTITIONED BY (risk_level, alert_date);
+\end{lstlisting}
+
+\section{Configuration Système de Production (\texttt{config/default.yaml})}
+\label{app:config}
+
+\begin{lstlisting}[language=YAML, caption={Paramètres opérationnels centralisés}, label={lst:yaml_config}]
+system:
+  app_name: "AML-GraphShield-Engine"
+  environment: "production"
+  utc_enforced: true
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topics:
+    inbound_transactions: "financial-transactions"
+    outbound_alerts: "fraud-alerts"
+  consumer_group: "aml-graph-streaming-group"
+
+streaming:
+  trigger_interval_seconds: 5
+  window_length_seconds: 600      # Duree de fenetre : 10 minutes
+  slide_interval_seconds: 30      # Pas de glissement : 30 secondes
+  watermark_delay_seconds: 120    # Filigrane evenementiel : 120 secondes
+
+detection:
+  rule_id: "TEMPORAL_TRIANGLE"
+  rule_version: 1
+  supported_currencies: ["MAD"]
+  max_cycle_duration_seconds: 7200
+  high_risk_threshold_amount: 100000.0
+  high_risk_ratio_tolerance: 1.15
+
+enrichment:
+  pagerank_reset_probability: 0.15 # Facteur d'amortissement alpha = 0.85
+  pagerank_max_iterations: 10
+  recompute_interval_seconds: 60
+  merchant_hub_threshold_factor: 10.0
+\end{lstlisting}
+
+\section{Guide d'Exécution des Tests et Benchmarks}
+\label{app:tests}
+
+\begin{lstlisting}[language=bash, caption={Commandes de reproduction des validations unifiées}, label={lst:cmd_exec}]
+# 1. Verification de l'environnement et test de fumee (Smoke test)
+python scripts/smoke_test.py
+
+# 2. Execution de la suite complete des 22 tests d'acceptation (AT-01 a AT-22)
+pytest tests/ -v -s
+
+# 3. Lancement des benchmarks de charge sous 3 paliers (10, 100, 500 TPS)
+python scripts/run_benchmarks.py --levels L1,L2,L3 --output docs/benchmark_report.md
+
+# 4. Compilation et demarrage du cockpit forensique Next.js 14
+cd dashboard && npm run build && npm run start
+\end{lstlisting}

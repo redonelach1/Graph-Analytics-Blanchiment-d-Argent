@@ -1,0 +1,29 @@
+% ==============================================================================
+% RÉSUMÉ & ABSTRACT BILINGUE
+% ==============================================================================
+
+\thispagestyle{plain}
+\begin{center}
+    {\Large\bfseries\color{primaryNavy} Résumé \& Abstract}\\[0.4cm]
+\end{center}
+
+\vspace{-0.2cm}
+\subsection*{Résumé (Français)}
+
+La détection du blanchiment d'argent dans les institutions financières se heurte aux limites des systèmes relationnels traditionnels : les requêtes SQL classiques peinent à identifier en continu les transferts circulaires complexes et génèrent de nombreux faux positifs sur les comptes marchands à fort volume. Ce projet présente la conception, l'implémentation et la validation expérimentale d'une plateforme distribuée de détection de cycles de blanchiment en temps réel. La solution repose sur un bus de messages \textbf{Apache Kafka}, un moteur de calcul de flux \textbf{Apache Spark 3.5 (Structured Streaming)} avec fenêtrage glissant de $10\text{ minutes}$ et watermark de $120\text{ secondes}$, et la bibliothèque \textbf{GraphFrames} pour l'extraction de motifs cycliques dirigés ($A \to B \to C \to A$). Les alertes sont enregistrées de façon idempotente dans des tables ACID \textbf{Delta Lake} grâce à un calcul de hachage canonique SHA-256 insensible aux rotations de sommets. Un algorithme \textbf{PageRank} continu permet d'isoler les carrefours marchands légitimes et d'éliminer les fausses alertes. Enfin, une interface web développée en \textbf{Next.js 14} permet aux analystes de visualiser les cycles détectés sous forme de graphe vectoriel interactif et d'exporter des dossiers de déclaration de soupçon (SAR JSON). L'ensemble a été validé sur les 22 tests d'acceptation du projet et évalué sur le jeu de données certifié IBM AMLSim (20 000 comptes, 200 cycles injectés), atteignant une latence P95 de $18.95\text{ ms}$ sous une charge de 500 transactions par seconde.
+
+\vspace{0.2cm}
+\noindent\textbf{Mots-clés :} Blanchiment d'argent, Graph Analytics, GraphFrames, Apache Spark, Kafka, Delta Lake, Détection de cycles, PageRank, Next.js.
+
+\vspace{0.5cm}
+\hrule
+\vspace{0.3cm}
+
+\subsection*{Abstract (English)}
+
+Detecting money laundering in banking environments poses significant technical challenges for traditional relational databases, which struggle to detect complex circular transaction patterns in real time and trigger excessive false alerts on high-volume merchant accounts. This report presents the design, implementation, and experimental validation of an end-to-end distributed streaming platform dedicated to real-time financial crime detection using graph analytics. The architecture combines an \textbf{Apache Kafka} messaging backbone, an \textbf{Apache Spark 3.5 (Structured Streaming)} engine running $10$-minute sliding windows with a $120$-second watermark, and \textbf{GraphFrames} for mining closed directed triangle motifs ($A \to B \to C \to A$). Detected alerts are stored idempotently into ACID \textbf{Delta Lake} tables using a canonical SHA-256 hashing scheme that guarantees invariance to cycle permutations. A continuous \textbf{PageRank} algorithm separates high-degree legitimate merchant hubs from criminal mules. Finally, an interactive forensic web cockpit built with \textbf{Next.js 14} enables analysts to explore directed graph topologies and export official Suspicious Activity Reports (SAR JSON). The platform was successfully validated across all 22 project acceptance tests and benchmarked against the IBM AMLSim dataset (20,000 accounts, 200 injected cycles), sustaining a P95 batch processing latency of $18.95\text{ ms}$ under a 500 TPS workload.
+
+\vspace{0.2cm}
+\noindent\textbf{Keywords:} Anti-Money Laundering, Graph Analytics, GraphFrames, Apache Spark, Kafka, Delta Lake, Cycle Detection, PageRank, Next.js.
+
+\newpage

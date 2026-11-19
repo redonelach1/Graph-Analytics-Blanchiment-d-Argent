@@ -1,0 +1,80 @@
+% ==============================================================================
+% CHAPITRE 2 : CHOIX TECHNOLOGIQUES & FONDEMENTS THÉORIQUES
+% ==============================================================================
+
+\chapter{Choix Technologiques et Fondements Théoriques}
+\label{ch:state_of_art}
+
+\section{Modélisation des transactions financières en graphe orienté}
+
+Pour analyser les réseaux de flux monétaires, nous modélisons le système bancaire sous la forme d'un graphe orienté dynamique $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ :
+\begin{itemize}
+    \item L'ensemble des sommets $\mathcal{V}$ représente les comptes bancaires émetteurs ou récepteurs ;
+    \item L'ensemble des arêtes $\mathcal{E}$ représente les transactions financières orientées $e = (u \to v)$, caractérisées par un montant $m(e)$, un horodatage d'émission $\tau(e)$ et une devise (ici le Dirham marocain, \texttt{MAD}).
+\end{itemize}
+
+Deux topologies principales caractérisent les comportements de blanchiment :
+\begin{enumerate}
+    \item \textbf{La dispersion (Fan-out) et la concentration (Fan-in) :} Un donneur d'ordre unique transfère des montants fractionnés vers de multiples comptes mules ($\outDeg(u) \gg 1$), qui reversent ensuite ces avoirs vers un compte centralisateur unique ($\inDeg(v) \gg 1$) ;
+    \item \textbf{La boucle cyclique fermée ($A \to B \to C \to A$) :} Les capitaux transitent séquentiellement par une chaîne de comptes intermédiaires avant de revenir au point d'origine.
+\end{enumerate}
+
+Dans notre moteur de détection, un cycle triangulaire d'arêtes $(e_1, e_2, e_3)$ est déclaré suspect s'il respecte les trois conditions opérationnelles suivantes :
+\begin{align}
+    \text{Ordre temporel causal :} \quad & \tau(e_1) \le \tau(e_2) \le \tau(e_3) \\
+    \text{Fenêtre temporelle bornée :} \quad & \tau(e_3) - \tau(e_1) \le \Delta t_{\max} = 7\,200\text{ s} \quad (2\text{ heures}) \\
+    \text{Conservation approximative :} \quad & \frac{\max(m(e_1), m(e_2), m(e_3))}{\min(m(e_1), m(e_2), m(e_3))} \le 1.15 \quad (\text{tolérance aux commissions de } 15\,\%)
+\end{align}
+
+\screenshotpaired[4.4cm]%
+{figures/fig_fanout_fanin_smurfing.png}{Dispersion Fan-Out et concentration Fan-In}%
+{figures/fig_circular_ring_pattern.png}{Boucle cyclique fermée ($A \to B \to C \to A$)}%
+{Modélisation topologique des mécanismes de circulation financière illicite}%
+{fig:topologies_aml}
+
+\section{Pourquoi le paradigme Streaming Lakehouse ?}
+
+Historiquement, l'architecture \textbf{Lambda} séparait le traitement des données en deux couches distinctes : une couche de vitesse (\textit{Speed Layer}) pour les alertes rapides mais approximatives, et une couche par lots (\textit{Batch Layer}) pour recalculer l'historique de manière exacte. Cette approche souffrait d'un défaut rédhibitoire : l'obligation de maintenir deux bases de code distinctes exécutant les mêmes algorithmes sur des moteurs différents, avec des risques constants de désynchronisation.
+
+Notre architecture retient le modèle unifié du \textbf{Streaming Lakehouse} fondé sur \textbf{Delta Lake} et \textbf{Apache Spark} :
+\begin{itemize}
+    \item \textbf{Transactions ACID :} Delta Lake garantit l'atomicité et l'isolation des écritures via un journal de commits sérialisé (\texttt{\_delta\_log}). En cas de plantage d'un exécuteur Spark pendant un micro-lot, aucun état partiel corrompu n'est conservé ;
+    \item \textbf{Écritures dédupliquées idempotentes :} L'instruction \texttt{MERGE INTO} permet d'insérer les alertes de manière conditionnelle (\texttt{WHEN NOT MATCHED THEN INSERT *}), éliminant ainsi les doublons naturels générés par les fenêtres glissantes imbriquées ;
+    \item \textbf{Voyage dans le temps (\textit{Time Travel}) :} La conservation de l'historique des versions de table permet de rejouer l'état exact du graphe à n'importe quel instant passé à des fins d'audit médico-légal.
+\end{itemize}
+
+\screenshotpaired[4.4cm]%
+{figures/fig_lakehouse_architecture.png}{Architecture Streaming Lakehouse unifiée}%
+{figures/fig_sliding_window_watermark.png}{Fenêtrage glissant de 10 min et Watermark de 120 s}%
+{Architecture globale unifiée et gestion du temps événementiel sous Spark Streaming}%
+{fig:arch_and_windowing}
+
+\section{Temps événementiel et gestion de la mémoire (Watermarking)}
+
+Dans un système distribué en production, l'heure à laquelle un transfert bancaire se produit sur le serveur émetteur (\textbf{Event Time}, noté $t_{event}$) diffère de l'instant où le message est lu par Spark (\textbf{Processing Time}, noté $t_{proc}$), en raison des délais réseau et des files d'attente Kafka.
+
+Pour traiter les arrivées désordonnées tout en empêchant la mémoire vive de saturer, Spark Structured Streaming applique un **filigrane événementiel** (\textit{Watermark}) :
+\begin{equation}
+    W(t) = \max_{\tau \le t} (t_{event}) - 120\text{ secondes}
+\end{equation}
+Tout événement arrivant avec un retard modéré ($t_{event} \ge W(t)$) est intégré dans les fenêtres en cours. En revanche, si $t_{event} < W(t)$, la transaction est trop en retard pour modifier le graphe en ligne : elle est archivée dans une table Delta dédiée (\texttt{late\_transactions}) pour le reporting historique sans perturber le streaming actif.
+
+\section{Extraction de motifs et algorithme PageRank}
+
+\subsection{Extraction de motifs déclaratifs avec GraphFrames}
+
+La bibliothèque \textbf{GraphFrames} permet d'exprimer des requêtes de sous-graphes complexes via une syntaxe déclarative compacte compilée directement par l'optimiseur de requêtes relationnelles Catalyst de Spark. La détection du triangle orienté s'écrit simplement :
+\begin{equation}
+    \texttt{"(a)-[e1]->(b); (b)-[e2]->(c); (c)-[e3]->(a)"}
+\end{equation}
+Cette écriture évite d'avoir à manipuler manuellement des jointures relationnelles distribuées complexes.
+
+\subsection{Discrimination des carrefours marchands par PageRank}
+
+Un problème récurrent en détection de fraude est la confusion entre un acteur commercial légitime et un réseau de blanchiment. Un grand compte marchand (ex. grande surface, opérateur télécom, station-service) reçoit chaque jour des dizaines de milliers de paiements sans jamais participer à un cycle de redistribution frauduleux.
+
+L'algorithme de centralité **PageRank** résout ce défi en calculant le rang stationnaire de chaque compte :
+\begin{equation}
+    PR(u) = \frac{1 - \alpha}{|\mathcal{V}|} + \alpha \sum_{v \in \mathcal{N}_{in}(u)} \frac{PR(v)}{\outDeg(v)}
+\end{equation}
+avec un facteur d'amortissement $\alpha = 0.85$. Un compte marchand concentre un nombre massif de flux entrants non compensés par des flux sortants équivalents, ce qui lui confère un score PageRank très élevé ($PR \gg \frac{1}{|\mathcal{V}|}$). À l'inverse, les comptes mules impliqués dans une boucle fermée équilibrent leurs flux et conservent un score modéré. Ce contraste permet à notre système d'éliminer automatiquement les faux positifs sur les comptes marchands (validation du test AT-17).

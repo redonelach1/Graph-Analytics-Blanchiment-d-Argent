@@ -1,0 +1,75 @@
+% ==============================================================================
+% ANNEXE A : SCHÉMAS DDL SQL DES TABLES DELTA LAKE
+% ==============================================================================
+
+\chapter{Schémas DDL SQL des Tables Delta Lake}
+\label{app:schemas}
+
+Ce document reproduit les définitions SQL DDL standardisées des tables Delta Lake orchestrées par le gestionnaire de schémas (\texttt{data/delta/delta\_schemas.sql}).
+
+\section{Table Silver des transactions validées}
+
+\begin{lstlisting}[language=SQL, caption={Définition DDL de la table \texttt{silver\_transactions}}, label={lst:ddl_silver}]
+CREATE TABLE IF NOT EXISTS silver_transactions (
+    transaction_id      STRING NOT NULL,
+    source_account      STRING NOT NULL,
+    target_account      STRING NOT NULL,
+    montant             DOUBLE NOT NULL,
+    devise              STRING NOT NULL,
+    type_operation      STRING NOT NULL,
+    event_timestamp     TIMESTAMP NOT NULL,
+    payload_hash        STRING NOT NULL,
+    ingest_timestamp    TIMESTAMP NOT NULL,
+    event_date          DATE NOT NULL
+)
+USING delta
+PARTITIONED BY (event_date);
+\end{lstlisting}
+
+\section{Table Gold des alertes de blanchiment}
+
+\begin{lstlisting}[language=SQL, caption={Définition DDL de la table \texttt{fraud\_alerts}}, label={lst:ddl_gold}]
+CREATE TABLE IF NOT EXISTS fraud_alerts (
+    alert_id            STRING NOT NULL,
+    cycle_id            STRING NOT NULL,
+    rule_id             STRING NOT NULL,
+    rule_version        INT NOT NULL,
+    risk_level          STRING NOT NULL,
+    reason_codes        ARRAY<STRING> NOT NULL,
+    account_ids         ARRAY<STRING> NOT NULL,
+    transaction_ids     ARRAY<STRING> NOT NULL,
+    total_amount        DOUBLE NOT NULL,
+    currency            STRING NOT NULL,
+    first_detected_at   TIMESTAMP NOT NULL,
+    event_window_start  TIMESTAMP NOT NULL,
+    event_window_end    TIMESTAMP NOT NULL,
+    evidence_json       STRING NOT NULL,
+    alert_date          DATE NOT NULL
+)
+USING delta
+PARTITIONED BY (risk_level, alert_date);
+\end{lstlisting}
+
+\section{Tables de quarantaine et d'anomalies de validation}
+
+\begin{lstlisting}[language=SQL, caption={Définition DDL des tables de quarantaine et conflits}, label={lst:ddl_quarantine}]
+CREATE TABLE IF NOT EXISTS quarantined_transactions (
+    raw_payload         STRING NOT NULL,
+    rejection_reason    STRING NOT NULL,
+    rejection_timestamp TIMESTAMP NOT NULL,
+    error_code          STRING NOT NULL,
+    rejection_date      DATE NOT NULL
+)
+USING delta
+PARTITIONED BY (rejection_date);
+
+CREATE TABLE IF NOT EXISTS conflict_transactions (
+    transaction_id      STRING NOT NULL,
+    existing_hash       STRING NOT NULL,
+    new_hash            STRING NOT NULL,
+    conflict_detected_at TIMESTAMP NOT NULL,
+    conflict_date       DATE NOT NULL
+)
+USING delta
+PARTITIONED BY (conflict_date);
+\end{lstlisting}

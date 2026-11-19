@@ -1,0 +1,45 @@
+% ==============================================================================
+% ANNEXE B : CONFIGURATION SYSTÈME DE PRODUCTION
+% ==============================================================================
+
+\chapter{Configuration Système Centralisée}
+\label{app:config}
+
+La totalité des paramètres opérationnels du pipeline (délais de fenêtrage, filigrane événementiel, seuils de risque et connecteurs Kafka) est centralisée dans le fichier YAML de référence \texttt{config/default.yaml}.
+
+\begin{lstlisting}[language=YAML, caption={Extrait annoté de la configuration de production (\texttt{config/default.yaml})}, label={lst:yaml_config}]
+system:
+  app_name: "AML-GraphShield-Engine"
+  environment: "production"
+  utc_enforced: true
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  client_id: "aml-lakehouse-driver"
+  topics:
+    inbound_transactions: "financial-transactions"
+    outbound_alerts: "fraud-alerts"
+  consumer_group: "aml-graph-streaming-group"
+  auto_offset_reset: "latest"
+
+streaming:
+  trigger_interval_seconds: 5
+  window_length_seconds: 600      # Duree de fenetre : 10 minutes
+  slide_interval_seconds: 30      # Pas de glissement : 30 secondes
+  watermark_delay_seconds: 120    # Filigrane evenementiel : 120 secondes
+
+detection:
+  rule_id: "TEMPORAL_TRIANGLE"
+  rule_version: 1
+  supported_currencies: ["MAD"]
+  max_cycle_duration_seconds: 7200
+  high_risk_threshold_amount: 100000.0
+  high_risk_ratio_tolerance: 1.15
+  medium_risk_threshold_amount: 20000.0
+
+enrichment:
+  pagerank_reset_probability: 0.15 # Facteur d'amortissement alpha = 0.85
+  pagerank_max_iterations: 10
+  recompute_interval_seconds: 60
+  merchant_hub_threshold_factor: 10.0
+\end{lstlisting}

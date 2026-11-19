@@ -1,0 +1,91 @@
+% ==============================================================================
+% CHAPITRE 4 : IMPLÉMENTATION DU PIPELINE STREAMING & DÉTECTION
+% ==============================================================================
+
+\chapter{Implémentation du Pipeline Streaming et Détection}
+\label{ch:streaming}
+
+\section{Validation sémantique et gestion de la quarantaine}
+
+Avant d'insérer une transaction dans le graphe actif, le module de validation applique une série de vérifications déterministes modélisées par une Machine à États Finis (FSM), illustrée en Figure~\ref{fig:fsm_validation} :
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/fig_fsm_validation_states.png}
+    \caption{Machine à états finis (FSM) régissant la validation sémantique et l'admission des transactions (Silver vs. Quarantaine)}
+    \label{fig:fsm_validation}
+\end{figure}
+
+Les contrôles s'exécutent selon l'ordre strict suivant :
+\begin{enumerate}
+    \item \textbf{Conformité du schéma et montant positif :} Vérification de la présence des 8 champs JSON obligatoires et du montant $m > 0$ borné à 2 décimales ;
+    \item \textbf{Devise reconnue :} Seules les transactions libellées en dirhams marocains (\texttt{MAD}) sont admises ;
+    \item \textbf{Exclusion des auto-virements :} Tout virement où le compte émetteur est identique au compte bénéficiaire ($u_{src} = u_{tgt}$) est archivé sans être injecté dans les motifs triangulaires (test AT-05) ;
+    \item \textbf{Contrôle de synchronisation temporelle :} Tout événement dont l'horodatage dépasse l'horloge système de plus de 60 secondes ($\tau_{event} > t_{now} + 60\text{ s}$) est consigné dans \texttt{quarantined\_transactions} pour prévenir la falsification temporelle (test AT-14) ;
+    \item \textbf{Détection des conflits par empreinte de charge utile :} Le système calcule le hash SHA-256 normalisé de la transaction :
+    \begin{equation}
+        H_{payload} = \operatorname{SHA-256}\big( u_{src} \mid u_{tgt} \mid \text{montant} \mid \text{devise} \mid \tau_{event} \big)
+    \end{equation}
+    Si un \texttt{transaction\_id} réapparaît avec des attributs modifiés ($H_{1} \ne H_{2}$), il est classé comme virement conflictuel et consigné dans \texttt{conflict\_transactions} (test AT-12).
+\end{enumerate}
+
+\section{Extraction de cycles et élimination des symétries}
+
+\subsection{Détection par micro-lots (foreachBatch)}
+
+Le moteur Spark Structured Streaming consomme le topic Kafka en continu et traite les données par micro-lots déclenchés toutes les 5 secondes. À chaque micro-lot :
+\begin{enumerate}
+    \item Spark filtre les transactions de la tranche glissante active $[H - 600\text{ s}, H]$, où $H$ représente la plus haute estampille temporelle observée ;
+    \item Les sommets et arêtes sont assemblés dans un objet \texttt{GraphFrame(vertices, edges)} ;
+    \item La recherche de motifs extrait les triplets orientés :
+    \begin{equation}
+        \texttt{g.find("(a)-[e1]->(b); (b)-[e2]->(c); (c)-[e3]->(a)")}
+    \end{equation}
+    \item Un filtre relationnel strict élimine les doublons d'arêtes et impose la séquence chronologique causale :
+    \begin{equation}
+        (a \ne b \land b \ne c \land a \ne c) \quad \land \quad (e_1.ts \le e_2.ts \le e_3.ts) \quad \land \quad \frac{\max(m_1, m_2, m_3)}{\min(m_1, m_2, m_3)} \le 1.15
+    \end{equation}
+\end{enumerate}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/fig_screenshot_spark_ui.png}
+    \caption{Console Spark Web UI : exécution du pipeline de streaming distribué et métriques des micro-lots}
+    \label{fig:screenshot_spark_ui}
+\end{figure}
+
+\subsection{Invariance par rotation et calcul des identifiants uniques}
+
+Un cycle triangulaire fermé $A \to B \to C \to A$ peut être découvert selon 3 permutations d'arêtes selon le sommet initial considéré : $(e_1, e_2, e_3)$, $(e_2, e_3, e_1)$ ou $(e_3, e_1, e_2)$. Sans précaution, le moteur générerait trois alertes distinctes pour la même boucle criminelle.
+
+Pour résoudre ce problème et garantir une **invariance stricte par rotation** (test AT-02), notre implémentation trie lexicographiquement les identifiants des trois transactions constitutives avant de calculer l'empreinte :
+\begin{align}
+    \cycleID &= \operatorname{SHA-256}\Big( \operatorname{Concat}\big( \operatorname{sort}([\texttt{txn\_id}_1, \texttt{txn\_id}_2, \texttt{txn\_id}_3]) \big) \Big) \\
+    \alertID &= \operatorname{SHA-256}\Big( \operatorname{Concat}\big( \cycleID, \;\vert\; \text{rule\_id}, \;\vert\; \text{rule\_version} \big) \Big)
+\end{align}
+Quel que soit l'ordre de découverte du triangle ou le numéro de la fenêtre glissante, l'alerte générée possède rigoureusement le même \alertID.
+
+\section{Sauvegarde transactionnelle et publication des alertes}
+
+Une fois les motifs validés, l'alerte est enregistrée dans la table Delta Lake \texttt{fraud\_alerts} via une instruction d'insertion conditionnelle \texttt{MERGE} :
+\begin{equation}
+    \texttt{MERGE INTO fraud\_alerts USING candidates ON alert\_id WHEN NOT MATCHED THEN INSERT *}
+\end{equation}
+Cette écriture idempotente garantit qu'aucune alerte en double ne peut subsister dans le lac de données. En parallèle, l'événement est sérialisé en JSON et publié sur le topic Kafka \texttt{fraud-alerts} avec l'\alertID{} comme clé de message, permettant aux consommateurs avals de dédupliquer les alertes instantanément (voir Figure~\ref{fig:screenshot_kafka_ui}).
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/fig_screenshot_kafka_console.png}
+    \caption{Console Kafka UI : suivi des topics transactionnels et émission des alertes en temps réel}
+    \label{fig:screenshot_kafka_ui}
+\end{figure}
+
+\section{Enrichissement PageRank et isolation des marchands (AT-17)}
+
+Pour empêcher les faux positifs sur les commerçants légitimes, un job d'enrichissement s'exécute toutes les 60 secondes :
+\begin{itemize}
+    \item Il recalcule les scores PageRank et les composantes connexes sur le graphe actif ;
+    \item Tout compte présentant un score PageRank supérieur au seuil marchand $\theta_{hub} = 10 \cdot \frac{1}{|\mathcal{V}|}$ est identifié comme un carrefour commercial et ne donne lieu à aucune fausse alerte de blanchiment (test AT-17 validé).
+\end{itemize}
+
+Enfin, une rigueur absolue a été apportée à l'**isolation des répertoires de checkpoints**. GraphFrames utilisant son propre dossier de checkpoints pour tronquer le lignage RDD, le système sépare strictement \texttt{data/checkpoints/} (réservé aux offsets Kafka de streaming) de \texttt{data/graph\_checkpoints/} (réservé aux calculs de graphe), évitant toute corruption d'état lors d'un redémarrage après crash (test AT-19).
