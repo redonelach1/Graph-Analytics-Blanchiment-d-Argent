@@ -64,7 +64,7 @@ export default function AccountsPage() {
     let isMounted = true;
     const fetchMetrics = async () => {
       try {
-        const res = await fetch("/api/metrics");
+        const res = await fetch("/api/metrics", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
           if (json.metrics && json.metrics.length > 0 && isMounted) {
@@ -196,7 +196,7 @@ export default function AccountsPage() {
                 filterType === "ALL" ? "bg-zinc-800 text-white font-semibold" : "text-muted-foreground hover:text-zinc-200"
               }`}
             >
-              All ({INITIAL_ACCOUNTS.length})
+              All ({accounts.length})
             </button>
             <button
               onClick={() => setFilterType("HUBS")}

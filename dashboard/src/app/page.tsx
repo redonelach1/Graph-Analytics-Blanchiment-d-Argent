@@ -117,8 +117,13 @@ export default async function DashboardPage() {
               <div className="text-2xl font-bold font-mono text-foreground">
                 {health.tables.account_graph_metrics.toLocaleString()}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Enriched with PageRank & clusters
+              <p className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
+                <span>Enriched with PageRank & clusters</span>
+                {health.transactions_ingested > 0 && (
+                  <span className="text-emerald-400 font-mono text-[10px]">
+                    {health.transactions_ingested.toLocaleString()} txns
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>

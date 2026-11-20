@@ -110,7 +110,7 @@ export default function AlertsPage() {
     let isMounted = true;
     const fetchAlerts = async () => {
       try {
-        const res = await fetch("/api/alerts");
+        const res = await fetch("/api/alerts", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
           if (json.alerts && json.alerts.length > 0 && isMounted) {
@@ -171,7 +171,7 @@ export default function AlertsPage() {
               <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase">Total Alerts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold font-mono text-foreground">{INITIAL_ALERTS.length}</div>
+              <div className="text-2xl font-bold font-mono text-foreground">{alerts.length}</div>
               <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">Deduplicated by SHA-256</p>
             </CardContent>
           </Card>

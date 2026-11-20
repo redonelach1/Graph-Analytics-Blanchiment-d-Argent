@@ -55,6 +55,7 @@ dashboard/.next/
 out/
 dashboard/out/
 .turbo/
+*.tsbuildinfo
 
 # LaTeX intermediate build files (keep main.pdf)
 *.aux

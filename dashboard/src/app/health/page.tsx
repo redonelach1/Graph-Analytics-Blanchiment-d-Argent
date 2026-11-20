@@ -54,7 +54,7 @@ export default function HealthPage() {
 
   const fetchHealth = async () => {
     try {
-      const res = await fetch("/api/health");
+      const res = await fetch("/api/health", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         if (json.health && json.health.tables) {
