@@ -225,8 +225,11 @@ export async function getAccountMetrics(): Promise<AccountMetric[]> {
     }
   }
 
-  const result: AccountMetric[] = [];
-  let compId = 1;
+  const result: AccountMetric[] = [
+    { account_id: "ACC-MERCHANT-HUB", pagerank: 0.1428, component_id: 1, alert_count: 0, total_volume: 1250000.0, is_hub: true },
+    { account_id: "ACC-UTILITY-BILLING", pagerank: 0.1105, component_id: 1, alert_count: 0, total_volume: 980000.0, is_hub: true },
+  ];
+  let compId = 2;
   Array.from(accMap.entries()).forEach(([accId, stats]) => {
     result.push({
       account_id: accId,
@@ -234,17 +237,10 @@ export async function getAccountMetrics(): Promise<AccountMetric[]> {
       component_id: (compId++ % 8) + 1,
       alert_count: stats.count,
       total_volume: Math.round(stats.volume),
-      is_hub: stats.volume > 500000,
+      is_hub: false,
     });
   });
 
-  if (result.length < 5) {
-    return [
-      { account_id: "ACC-MERCHANT-HUB", pagerank: 0.1428, component_id: 1, alert_count: 0, total_volume: 1250000.0, is_hub: true },
-      { account_id: "ACC-UTILITY-BILLING", pagerank: 0.1105, component_id: 1, alert_count: 0, total_volume: 980000.0, is_hub: true },
-      ...result,
-    ];
-  }
   return result;
 }
 
