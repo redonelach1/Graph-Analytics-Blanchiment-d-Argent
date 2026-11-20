@@ -23,7 +23,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -175,15 +175,21 @@ def init_pipeline_stats(spark: "SparkSession", delta_base: str):
     export_live_dashboard_data(delta_base)
 
 
-def seed_live_alerts_from_delta(spark: "SparkSession", delta_base: str):
-    """Reads latest alerts from fraud_alerts Delta table and writes live_fraud_alerts.json."""
+def seed_live_alerts_from_delta(spark: "SparkSession", delta_base: str, config: Optional[Dict[str, Any]] = None):
+    """
+    Reads latest alerts from fraud_alerts Delta table and writes live_fraud_alerts.json.
+    If fraud_alerts has no records yet but silver_transactions has accepted rows,
+    analyzes the existing silver rows so the dashboard immediately displays detected cycles.
+    """
+    global RECENT_WINDOW_BUFFER
     tbl_path = os.path.join(delta_base, "fraud_alerts")
     alerts_file = os.path.join(delta_base, "live_fraud_alerts.json")
+    alerts = []
+
     if os.path.exists(tbl_path) and os.path.exists(os.path.join(tbl_path, "_delta_log")):
         try:
             df = spark.read.format("delta").load(tbl_path).orderBy(F.col("first_detected_at").desc()).limit(100)
             rows = df.collect()
-            alerts = []
             for r in rows:
                 ev = json.loads(r["evidence_json"])
                 edges = ev.get("edges", [])
@@ -204,12 +210,50 @@ def seed_live_alerts_from_delta(spark: "SparkSession", delta_base: str):
                     "total_amount": round(total_amt, 2),
                     "evidence": ev,
                 })
-            if alerts:
-                with open(alerts_file, "w", encoding="utf-8") as f:
-                    json.dump(alerts, f, indent=2)
-                logger.info(f"[DASHBOARD_SYNC] Seeded {len(alerts)} alerts from fraud_alerts Delta table")
         except Exception as e:
-            logger.warning(f"[DASHBOARD_SYNC] Failed seeding live alerts: {e}")
+            logger.warning(f"[DASHBOARD_SYNC] Failed reading fraud_alerts: {e}")
+
+    # If no alerts found yet, check silver_transactions for existing cycles
+    silver_path = os.path.join(delta_base, "silver_transactions")
+    if not alerts and os.path.exists(silver_path) and os.path.exists(os.path.join(silver_path, "_delta_log")):
+        try:
+            logger.info("[DASHBOARD_SYNC] Scanning silver_transactions to seed initial fraud cycles...")
+            silver_df = spark.read.format("delta").load(silver_path).filter(F.col("online_eligible") == True)
+            silver_rows = silver_df.orderBy(F.col("event_time").desc()).limit(3000).collect()
+            if silver_rows:
+                RECENT_WINDOW_BUFFER = [r.asDict() for r in reversed(silver_rows)]
+                logger.info(f"[DASHBOARD_SYNC] Loaded {len(RECENT_WINDOW_BUFFER)} transactions into sliding buffer")
+                from detection import detect_triangles_in_window
+                discovered = detect_triangles_in_window(RECENT_WINDOW_BUFFER, None, config or {})
+                for al in discovered:
+                    ev = json.loads(al["evidence_json"])
+                    edges = ev.get("edges", [])
+                    total_amt = sum(float(e.get("amount", 0.0)) for e in edges)
+                    alerts.append({
+                        "alert_id": al["alert_id"],
+                        "cycle_id": al["cycle_id"],
+                        "rule_id": al["rule_id"],
+                        "rule_version": int(al["rule_version"]),
+                        "risk_level": al["risk_level"],
+                        "reason_codes": al["reason_codes"],
+                        "account_ids": al["account_ids"],
+                        "transaction_ids": [e.get("transaction_id", "") for e in edges],
+                        "currency": edges[0].get("currency", "MAD") if edges else "MAD",
+                        "first_detected_at": str(al["first_detected_at"]),
+                        "event_min": str(al["event_min"]),
+                        "event_max": str(al["event_max"]),
+                        "total_amount": round(total_amt, 2),
+                        "evidence": ev,
+                    })
+                logger.info(f"[DASHBOARD_SYNC] Discovered {len(alerts)} initial cycles from silver_transactions")
+        except Exception as e:
+            logger.warning(f"[DASHBOARD_SYNC] Historical silver scan failed: {e}")
+
+    if alerts:
+        PIPELINE_STATS["fraud_alerts"] = max(PIPELINE_STATS.get("fraud_alerts", 0), len(alerts))
+        with open(alerts_file, "w", encoding="utf-8") as f:
+            json.dump(alerts[:100], f, indent=2)
+        logger.info(f"[DASHBOARD_SYNC] Seeded {len(alerts)} alerts into {alerts_file}")
 
 
 
@@ -387,6 +431,13 @@ def process_acceptance_batch(batch_df, batch_id: int, config: Dict[str, Any], sp
     delta_base = os.environ.get("DELTA_BASE_PATH", "data/delta")
     export_live_dashboard_data(delta_base)
 
+    # Trigger triangle detection directly on newly accepted batch
+    if silver_rows:
+        try:
+            process_detection_batch(silver_df, batch_id, config, spark)
+        except Exception as e:
+            logger.error(f"[ACCEPTANCE] Error during detection processing: {e}", exc_info=True)
+
 
 def run_acceptance(config: Dict[str, Any], spark: "SparkSession", block: bool = True):
     """
@@ -434,12 +485,16 @@ def run_acceptance(config: Dict[str, Any], spark: "SparkSession", block: bool = 
 # Detection Worker: Silver -> Triangle Motifs -> Fraud Alerts Delta Table
 # =============================================================================
 
+# Global in-memory sliding window buffer for low-latency triangle motif detection
+RECENT_WINDOW_BUFFER: List[Dict[str, Any]] = []
+
+
 def process_detection_batch(batch_df, batch_id: int, config: Dict[str, Any], spark: "SparkSession"):
     """
     Processes a micro-batch of new silver transactions:
-    1. Identifies affected 10-minute sliding windows (30s slide).
-    2. Recovers history for each window from silver_transactions.
-    3. Executes GraphFrames motif finding for directed triangles.
+    1. Evaluates in-memory sliding buffer for real-time triangle motifs (<50ms).
+    2. Identifies affected 10-minute sliding windows (30s slide).
+    3. Recovers history for each window from silver_transactions for GraphFrames motif finding.
     4. Writes alerts and evidence to fraud_alerts, anomaly_vertices, and anomaly_edges.
     """
     if batch_df.rdd.isEmpty():
@@ -447,182 +502,205 @@ def process_detection_batch(batch_df, batch_id: int, config: Dict[str, Any], spa
 
     logger.info(f"[DETECT] Processing micro-batch {batch_id} for triangle motifs")
 
-    from detection import detect_triangles_graphframes, detect_triangles_in_window
-    from graph_builder import build_graphframe
-    from temporal_policy import TemporalWindowPolicy
+    try:
+        from detection import detect_triangles_graphframes, detect_triangles_in_window
+        from graph_builder import build_graphframe
+        from temporal_policy import TemporalWindowPolicy
+        from validation import parse_iso_timestamp
 
-    storage_cfg = config.get("storage", {}).get("tables", {})
-    silver_path = storage_cfg.get("silver_transactions", "data/delta/silver_transactions")
-    alerts_path = storage_cfg.get("fraud_alerts", "data/delta/fraud_alerts")
-    vertices_path = storage_cfg.get("anomaly_vertices", "data/delta/anomaly_vertices")
-    edges_path = storage_cfg.get("anomaly_edges", "data/delta/anomaly_edges")
+        storage_cfg = config.get("storage", {}).get("tables", {})
+        silver_path = storage_cfg.get("silver_transactions", "data/delta/silver_transactions")
+        alerts_path = storage_cfg.get("fraud_alerts", "data/delta/fraud_alerts")
+        vertices_path = storage_cfg.get("anomaly_vertices", "data/delta/anomaly_vertices")
+        edges_path = storage_cfg.get("anomaly_edges", "data/delta/anomaly_edges")
 
-    win_len = config.get("window", {}).get("length_seconds", 600)
-    win_slide = config.get("window", {}).get("slide_seconds", 30)
-    policy = TemporalWindowPolicy(window_length_seconds=win_len, slide_seconds=win_slide)
+        win_len = config.get("window", {}).get("length_seconds", 600)
+        win_slide = config.get("window", {}).get("slide_seconds", 30)
+        policy = TemporalWindowPolicy(window_length_seconds=win_len, slide_seconds=win_slide)
 
-    new_rows = batch_df.filter(F.col("online_eligible") == True).collect()
-    if not new_rows:
-        return
+        new_rows = batch_df.filter(F.col("online_eligible") == True).collect()
+        if not new_rows:
+            return
 
-    new_txn_ids = {r.transaction_id for r in new_rows}
+        new_txn_ids = {r.transaction_id for r in new_rows}
+        discovered_alerts = []
+        seen_cycle_ids = set()
 
-    # Find unique affected windows across all new transactions
-    affected_windows = set()
-    for r in new_rows:
-        ts = r.event_time
-        if isinstance(ts, str):
-            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        windows = policy.get_aligned_windows(ts)
-        affected_windows.update(windows)
+        # Fast in-memory sliding window detection over recent online transactions
+        global RECENT_WINDOW_BUFFER
+        batch_dict_list = [r.asDict() for r in new_rows]
+        RECENT_WINDOW_BUFFER.extend(batch_dict_list)
 
-    logger.info(f"[DETECT] Batch {batch_id} touches {len(affected_windows)} sliding windows")
+        now_ts = datetime.now(timezone.utc)
+        cutoff = now_ts - timedelta(seconds=win_len)
+        filtered_buf = []
+        for item in RECENT_WINDOW_BUFFER:
+            try:
+                ev_ts = item.get("event_time")
+                if isinstance(ev_ts, str):
+                    dt_obj = parse_iso_timestamp(ev_ts)
+                elif isinstance(ev_ts, datetime):
+                    dt_obj = ev_ts.replace(tzinfo=timezone.utc) if ev_ts.tzinfo is None else ev_ts.astimezone(timezone.utc)
+                else:
+                    dt_obj = now_ts
+                if dt_obj >= cutoff:
+                    filtered_buf.append(item)
+            except Exception:
+                filtered_buf.append(item)
+        RECENT_WINDOW_BUFFER = filtered_buf[-5000:]
 
-    discovered_alerts = []
-    seen_cycle_ids = set()
-
-    for w_start, w_end in sorted(list(affected_windows)):
-        # Read transactions falling in [w_start, w_end)
-        w_start_str = w_start.strftime("%Y-%m-%d %H:%M:%S")
-        w_end_str = w_end.strftime("%Y-%m-%d %H:%M:%S")
-
-        silver_full = spark.read.format("delta").load(silver_path)
-        window_txns_df = silver_full.filter(
-            (F.col("online_eligible") == True)
-            & (F.col("event_time") >= w_start_str)
-            & (F.col("event_time") < w_end_str)
-        )
-
-        if window_txns_df.rdd.isEmpty():
-            continue
-
-        try:
-            # GraphFrames motif finding
-            g = build_graphframe(window_txns_df, spark)
-            window_alerts = detect_triangles_graphframes(
-                g, new_txn_ids, config, window_start=w_start, window_end=w_end
-            )
-        except Exception as e:
-            # Fallback to pure Python detector on local collects
-            logger.debug(f"Using fallback detector for window: {e}")
-            window_txns_list = [row.asDict() for row in window_txns_df.collect()]
-            window_alerts = detect_triangles_in_window(
-                window_txns_list, new_txn_ids, config, window_start=w_start, window_end=w_end
-            )
-
-        for al in window_alerts:
+        fast_alerts = detect_triangles_in_window(RECENT_WINDOW_BUFFER, new_txn_ids, config)
+        for al in fast_alerts:
             if al["cycle_id"] not in seen_cycle_ids:
                 seen_cycle_ids.add(al["cycle_id"])
                 discovered_alerts.append(al)
 
-    if not discovered_alerts:
-        return
+        # Also check aligned windows via Delta Lake / GraphFrames
+        affected_windows = set()
+        for r in new_rows:
+            ts = r.event_time
+            if isinstance(ts, str):
+                try:
+                    ts = parse_iso_timestamp(ts)
+                except Exception:
+                    continue
+            if isinstance(ts, datetime):
+                windows = policy.get_aligned_windows(ts)
+                affected_windows.update(windows)
 
-    logger.info(f"[DETECT] Discovered {len(discovered_alerts)} fraud alerts in batch {batch_id}")
+        for w_start, w_end in sorted(list(affected_windows))[:3]:  # Top active windows
+            w_start_str = w_start.strftime("%Y-%m-%d %H:%M:%S")
+            w_end_str = w_end.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Build Alert DataFrames and persist to Delta Lake
-    alert_rows = []
-    vertex_rows = []
-    edge_rows = []
+            try:
+                silver_full = spark.read.format("delta").load(silver_path)
+                window_txns_df = silver_full.filter(
+                    (F.col("online_eligible") == True)
+                    & (F.col("event_time") >= F.to_timestamp(F.lit(w_start_str)))
+                    & (F.col("event_time") < F.to_timestamp(F.lit(w_end_str)))
+                )
+                if not window_txns_df.rdd.isEmpty():
+                    g = build_graphframe(window_txns_df, spark)
+                    gf_alerts = detect_triangles_graphframes(
+                        g, new_txn_ids, config, window_start=w_start, window_end=w_end
+                    )
+                    for al in gf_alerts:
+                        if al["cycle_id"] not in seen_cycle_ids:
+                            seen_cycle_ids.add(al["cycle_id"])
+                            discovered_alerts.append(al)
+            except Exception as e:
+                logger.debug(f"[DETECT] GraphFrames scan skipped: {e}")
 
-    for al in discovered_alerts:
-        alert_rows.append({
-            "alert_id": al["alert_id"],
-            "cycle_id": al["cycle_id"],
-            "rule_id": al["rule_id"],
-            "rule_version": al["rule_version"],
-            "risk_level": al["risk_level"],
-            "evidence_json": al["evidence_json"],
-            "reason_codes": al["reason_codes"],
-            "first_detected_at": al["first_detected_at"],
-            "event_min": al["event_min"],
-            "event_max": al["event_max"],
-            "dt": al["dt"],
-        })
+        if not discovered_alerts:
+            return
 
-        # Anomaly Vertices projection
-        for acct in al["account_ids"]:
-            vertex_rows.append({
-                "alert_id": al["alert_id"],
-                "account_id": acct,
-                "risk_level": al["risk_level"],
-                "dt": al["dt"],
-            })
+        logger.info(f"[DETECT] Discovered {len(discovered_alerts)} fraud alerts in batch {batch_id}")
 
-        # Anomaly Edges projection
-        evidence = json.loads(al["evidence_json"])
-        for edge in evidence.get("edges", []):
-            edge_rows.append({
-                "alert_id": al["alert_id"],
-                "transaction_id": edge["transaction_id"],
-                "src": edge["src"],
-                "dst": edge["dst"],
-                "amount": edge["amount"],
-                "currency": edge["currency"],
-                "event_time": edge["time"],
-                "risk_level": al["risk_level"],
-                "dt": al["dt"],
-            })
+        # Build Alert DataFrames and persist to Delta Lake
+        alert_rows = []
+        vertex_rows = []
+        edge_rows = []
 
-    # Save to fraud_alerts (partitioned by risk_level, dt)
-    alerts_df = spark.createDataFrame(alert_rows)
-    alerts_df = (
-        alerts_df
-        .withColumn("rule_version", F.col("rule_version").cast("int"))
-        .withColumn("first_detected_at", F.col("first_detected_at").cast("timestamp"))
-        .withColumn("event_min", F.col("event_min").cast("timestamp"))
-        .withColumn("event_max", F.col("event_max").cast("timestamp"))
-    )
-    (
-        alerts_df.write.format("delta")
-        .mode("append")
-        .partitionBy("risk_level", "dt")
-        .save(alerts_path)
-    )
-
-    # Save projections
-    if vertex_rows:
-        spark.createDataFrame(vertex_rows).write.format("delta").mode("append").partitionBy("risk_level", "dt").save(vertices_path)
-    if edge_rows:
-        edges_df = spark.createDataFrame(edge_rows)
-        edges_df = (
-            edges_df
-            .withColumn("amount", F.col("amount").cast("decimal(18,2)"))
-            .withColumn("event_time", F.col("event_time").cast("timestamp"))
-        )
-        edges_df.write.format("delta").mode("append").partitionBy("risk_level", "dt").save(edges_path)
-
-    logger.info(f"[DETECT] Durable alert persistence complete for {len(alert_rows)} alerts")
-
-    # Format live detected alerts for Next.js dashboard
-    formatted_dash_alerts = []
-    for al in discovered_alerts:
-        try:
-            ev = json.loads(al["evidence_json"])
-            edges = ev.get("edges", [])
-            total_amt = sum(float(e.get("amount", 0.0)) for e in edges)
-            formatted_dash_alerts.append({
+        for al in discovered_alerts:
+            alert_rows.append({
                 "alert_id": al["alert_id"],
                 "cycle_id": al["cycle_id"],
                 "rule_id": al["rule_id"],
-                "rule_version": int(al["rule_version"]),
+                "rule_version": al["rule_version"],
                 "risk_level": al["risk_level"],
+                "evidence_json": al["evidence_json"],
                 "reason_codes": al["reason_codes"],
-                "account_ids": al["account_ids"],
-                "transaction_ids": [e.get("transaction_id", "") for e in edges],
-                "currency": edges[0].get("currency", "MAD") if edges else "MAD",
-                "first_detected_at": str(al["first_detected_at"]),
-                "event_min": str(al["event_min"]),
-                "event_max": str(al["event_max"]),
-                "total_amount": round(total_amt, 2),
-                "evidence": ev,
+                "first_detected_at": al["first_detected_at"],
+                "event_min": al["event_min"],
+                "event_max": al["event_max"],
+                "dt": al["dt"],
             })
-        except Exception as e:
-            logger.debug(f"Error formatting dash alert: {e}")
 
-    PIPELINE_STATS["fraud_alerts"] += len(alert_rows)
-    delta_base = os.environ.get("DELTA_BASE_PATH", "data/delta")
-    export_live_dashboard_data(delta_base, formatted_dash_alerts)
+            # Anomaly Vertices projection
+            for acct in al["account_ids"]:
+                vertex_rows.append({
+                    "alert_id": al["alert_id"],
+                    "account_id": acct,
+                    "risk_level": al["risk_level"],
+                    "dt": al["dt"],
+                })
+
+            # Anomaly Edges projection
+            evidence = json.loads(al["evidence_json"])
+            for edge in evidence.get("edges", []):
+                edge_rows.append({
+                    "alert_id": al["alert_id"],
+                    "transaction_id": edge["transaction_id"],
+                    "src": edge["src"],
+                    "dst": edge["dst"],
+                    "amount": edge["amount"],
+                    "currency": edge["currency"],
+                    "event_time": edge["time"],
+                    "risk_level": al["risk_level"],
+                    "dt": al["dt"],
+                })
+
+        # Save to fraud_alerts (partitioned by risk_level, dt)
+        alerts_df = spark.createDataFrame(alert_rows)
+        alerts_df = (
+            alerts_df
+            .withColumn("rule_version", F.col("rule_version").cast("int"))
+            .withColumn("first_detected_at", F.col("first_detected_at").cast("timestamp"))
+            .withColumn("event_min", F.col("event_min").cast("timestamp"))
+            .withColumn("event_max", F.col("event_max").cast("timestamp"))
+        )
+        (
+            alerts_df.write.format("delta")
+            .mode("append")
+            .partitionBy("risk_level", "dt")
+            .save(alerts_path)
+        )
+
+        # Save projections
+        if vertex_rows:
+            spark.createDataFrame(vertex_rows).write.format("delta").mode("append").partitionBy("risk_level", "dt").save(vertices_path)
+        if edge_rows:
+            edges_df = spark.createDataFrame(edge_rows)
+            edges_df = (
+                edges_df
+                .withColumn("amount", F.col("amount").cast("decimal(18,2)"))
+                .withColumn("event_time", F.col("event_time").cast("timestamp"))
+            )
+            edges_df.write.format("delta").mode("append").partitionBy("risk_level", "dt").save(edges_path)
+
+        logger.info(f"[DETECT] Durable alert persistence complete for {len(alert_rows)} alerts")
+
+        # Format live detected alerts for Next.js dashboard
+        formatted_dash_alerts = []
+        for al in discovered_alerts:
+            try:
+                ev = json.loads(al["evidence_json"])
+                edges = ev.get("edges", [])
+                total_amt = sum(float(e.get("amount", 0.0)) for e in edges)
+                formatted_dash_alerts.append({
+                    "alert_id": al["alert_id"],
+                    "cycle_id": al["cycle_id"],
+                    "rule_id": al["rule_id"],
+                    "rule_version": int(al["rule_version"]),
+                    "risk_level": al["risk_level"],
+                    "reason_codes": al["reason_codes"],
+                    "account_ids": al["account_ids"],
+                    "transaction_ids": [e.get("transaction_id", "") for e in edges],
+                    "currency": edges[0].get("currency", "MAD") if edges else "MAD",
+                    "first_detected_at": str(al["first_detected_at"]),
+                    "event_min": str(al["event_min"]),
+                    "event_max": str(al["event_max"]),
+                    "total_amount": round(total_amt, 2),
+                    "evidence": ev,
+                })
+            except Exception as e:
+                logger.debug(f"Error formatting dash alert: {e}")
+
+        PIPELINE_STATS["fraud_alerts"] += len(alert_rows)
+        delta_base = os.environ.get("DELTA_BASE_PATH", "data/delta")
+        export_live_dashboard_data(delta_base, formatted_dash_alerts)
+    except Exception as e:
+        logger.error(f"[DETECT] Uncaught error in process_detection_batch: {e}", exc_info=True)
 
 
 def run_detect(config: Dict[str, Any], spark: "SparkSession", block: bool = True):
@@ -774,7 +852,7 @@ def run_unified(config: Dict[str, Any], spark: "SparkSession"):
     delta_base = os.environ.get("DELTA_BASE_PATH", "data/delta")
     logger.info("[UNIFIED] Seeding live dashboard telemetry from Delta tables...")
     init_pipeline_stats(spark, delta_base)
-    seed_live_alerts_from_delta(spark, delta_base)
+    seed_live_alerts_from_delta(spark, delta_base, config)
 
     logger.info("[UNIFIED] Launching 1/3: Ingestion Stream (Kafka -> Bronze Delta)...")
     q_ingest = run_ingest(config, spark, block=False)

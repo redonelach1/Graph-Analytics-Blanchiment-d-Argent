@@ -116,9 +116,11 @@ class TransactionGenerator:
         amt2 = round(base_amt * self.rng.uniform(0.95, 0.99), 2)
         amt3 = round(amt2 * self.rng.uniform(0.95, 0.99), 2)
 
-        t1 = base_time
-        t2 = base_time + timedelta(seconds=self.rng.randint(30, 180))
-        t3 = t2 + timedelta(seconds=self.rng.randint(30, 240))
+        # Ensure transactions fall strictly within the recent past (last 60s)
+        # so they respect causal order t1 < t2 < t3 <= now without violating future_skew_tolerance (60s)
+        t1 = base_time - timedelta(seconds=self.rng.randint(45, 55))
+        t2 = t1 + timedelta(seconds=self.rng.randint(10, 15))
+        t3 = t2 + timedelta(seconds=self.rng.randint(10, 15))
 
         return [
             self._make_txn(a, b, amount=amt1, event_time=t1),
@@ -255,8 +257,8 @@ def main():
 
         elif args.mode == "mixed":
             while args.count <= 0 or emitted < args.count:
-                # 90% normal, 10% triangle
-                if random.random() < 0.10 and (args.count <= 0 or emitted + 3 <= args.count):
+                # 80% normal, 20% triangle cycles for dynamic live demonstration
+                if random.random() < 0.20 and (args.count <= 0 or emitted + 3 <= args.count):
                     cycle_txns = generator.generate_triangle()
                     for txn in cycle_txns:
                         _emit_record(txn, sink, out_file, args.dry_run)

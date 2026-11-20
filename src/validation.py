@@ -85,6 +85,8 @@ def parse_iso_timestamp(ts_val: Any) -> datetime:
     ts_str = str(ts_val).strip()
     if " " in ts_str and "T" not in ts_str:
         ts_str = ts_str.replace(" ", "T")
+    if not (ts_str.endswith("Z") or "+" in ts_str[10:] or "-" in ts_str[10:]):
+        ts_str += "Z"
     if not ISO8601_PATTERN.match(ts_str):
         raise ValueError(f"Invalid ISO-8601 timestamp format: {ts_str}")
 
